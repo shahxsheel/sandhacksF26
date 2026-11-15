@@ -1,0 +1,13 @@
+{$FIRSTLINK_HOST} {
+    encode zstd gzip
+    request_body {
+        max_size 10MB
+    }
+    header {
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+        Permissions-Policy "camera=(), microphone=(self), geolocation=()"
+        -Server
+    }
+    reverse_proxy 127.0.0.1:3000
+}
