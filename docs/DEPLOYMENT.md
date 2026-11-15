@@ -55,3 +55,5 @@ Current application release: `2927413`. Adds the operator console and three conc
 - All five witness-link reports came back as expected (four accepted, the fabricated one held), served from the cache.
 - Four intake reports were routed live: the flood to the underpass incident; smoke seen from the Gliderport to the canyon fire (routed by content, not location); the cliff fall to the bluff incident; and a Chula Vista outage held as matching no active incident.
 
+
+Custom domain: host Caddy serves `firstlink.work`, `www.firstlink.work` and `firstlink.144.202.126.31.sslip.io` (via `FIRSTLINK_HOST` in `/etc/systemd/system/caddy.service.d/firstlink.conf`; the previous value is kept as `firstlink.conf.bak`). The app is host-agnostic: same-origin checks compare against the request's own host. HTTPS certificates for `firstlink.work` are issued automatically once its DNS at Porkbun points to `144.202.126.31`: an `A` record on the apex, plus `www` as an `A` record or a `CNAME` to the apex, replacing the Porkbun parking records.
