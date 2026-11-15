@@ -259,8 +259,8 @@ test.describe("UI — readable headings without horizontal overflow", () => {
 
     await page.goto(`/volunteer/${owner.incident.id}`);
     await assertMainHeadingReadable(page);
-    await expect(page.getByRole("button", { name: /^accept$/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /^decline$/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /accept/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /decline/i })).toBeVisible();
   });
 
   test("witness form blocks submit until consent is checked", async ({ page }) => {
@@ -270,10 +270,10 @@ test.describe("UI — readable headings without horizontal overflow", () => {
     await page.locator('[name="location"]').fill("North entrance");
     await page.locator('[name="text"]').fill("Smoke near the roofline; staying outside.");
     await page.locator('[name="consent"]').setChecked(false);
-    const submit = page.getByRole("button", { name: /submit|send report/i });
+    const submit = page.getByRole("button", { name: /submit|send (report|observation)/i });
     await expect(submit).toBeVisible();
     await submit.click();
-    await expect(page.getByText(/consent/i)).toBeVisible();
+    await expect(page.getByText(/confirm the safety consent checkbox/i)).toBeVisible();
     const refresh = await page.request.get("/api/session");
     expect(refresh.ok()).toBeTruthy();
     const { state } = (await refresh.json()) as { state: DemoState };

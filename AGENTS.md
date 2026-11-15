@@ -11,3 +11,13 @@ Build the complete emergency-response hackathon demonstration described in docs/
 - Use other-provider delegates with bounded file ownership to conserve primary usage. No child subagents unless explicitly assigned. Do not commit, provision resources, or call paid APIs from delegates unless their task permits it. Parent owns integration, credentials, resource creation, and final commits.
 - API contracts in src/lib/types.ts and docs/BUILD_PLAN.md are shared. Do not change them without coordinating through your result. No polling UI; refresh on explicit user action or successful mutations.
 - Tests must verify meaningful behavior. Run build/typecheck and targeted end-to-end checks. Do not invent passing browser reviews, deployment, source provenance, or physical hardware tests.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

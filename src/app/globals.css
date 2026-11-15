@@ -1,14 +1,356 @@
+/* FirstLink Design System - Customer.io Spruce & Cream */
+@import "@fontsource-variable/inter";
+
 :root {
-  color-scheme: light;
-  color: #172b2a;
-  background: #f5f5ee;
-  font-family: Arial, Helvetica, sans-serif;
+  --spruce-deep: #00191c;
+  --spruce-main: #032125;
+  --spruce-panel: #0b363b;
+  --spruce-panel-hover: #0f464d;
+  --spruce-muted: #437278;
+  --spruce-light: #a1c2c6;
+  --spruce-hairline: rgba(255, 255, 255, 0.08);
+
+  --cream: #fffcf6;
+  --cream-card: #ffffff;
+  --cream-muted: #f4efe4;
+  --cream-hairline: #ebebeb;
+  --cream-hairline-strong: #dedede;
+  --text-main: #032125;
+  --text-muted: #516d71;
+  --text-dim: #7f9b9f;
+
+  --accent-lime: #abffae;
+  --accent-lime-text: #022b10;
+  --accent-lime-glow: rgba(171, 255, 174, 0.45);
+
+  --soft-blue: #e2f4ff;
+  --soft-blue-border: #bfe5ff;
+  --soft-blue-text: #05486d;
+
+  --pale-green: #eafde8;
+  --pale-green-border: #c4f5c0;
+  --pale-green-text: #13521e;
+
+  --caution-bg: #fff8e6;
+  --caution-border: #f2d287;
+  --caution-text: #734a00;
+
+  --danger-bg: #fdf2f2;
+  --danger-border: #f8c9c9;
+  --danger-text: #821c1c;
+
+  font-family: "Inter Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-weight: 475;
+  color: var(--text-main);
+  background-color: var(--cream);
+  line-height: 1.5;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
-* { box-sizing: border-box; }
-body { margin: 0; }
-main { max-width: 960px; margin: 0 auto; padding: 18vh 24px 64px; }
-.eyebrow { color: #48675d; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
-h1 { font-size: clamp(2.5rem, 7vw, 5.5rem); line-height: 1.05; letter-spacing: -0.055em; }
-.description { max-width: 560px; font-size: 1.25rem; line-height: 1.65; }
-.status { margin-top: 48px; color: #52635c; font-size: 0.9rem; }
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background-color: var(--cream);
+  color: var(--text-main);
+  overflow-x: hidden;
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-weight: 475;
+  color: inherit;
+  letter-spacing: 0.004em;
+  line-height: 1.15;
+}
+
+h1 {
+  font-size: clamp(2.25rem, 5vw, 3.75rem);
+}
+
+h2 {
+  font-size: clamp(1.5rem, 3vw, 2.25rem);
+}
+
+h3 {
+  font-size: clamp(1.15rem, 2vw, 1.35rem);
+}
+
+p {
+  margin: 0;
+  line-height: 1.55;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+  font-weight: 475;
+  font-size: inherit;
+}
+
+/* Hairline borders & 2px corners */
+.card-light {
+  background: var(--cream-card);
+  border: 1px solid var(--cream-hairline);
+  border-radius: 2px;
+  box-shadow: none;
+}
+
+.card-dark {
+  background: var(--spruce-panel);
+  border: 1px solid var(--spruce-hairline);
+  border-radius: 2px;
+  color: var(--cream);
+  box-shadow: none;
+}
+
+.card-dark-deep {
+  background: var(--spruce-deep);
+  border: 1px solid var(--spruce-hairline);
+  border-radius: 2px;
+  color: var(--cream);
+  box-shadow: none;
+}
+
+/* Focus styles */
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-lime-glow);
+}
+
+/* Pill Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 22px;
+  border-radius: 9999px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  border: 1px solid transparent;
+  line-height: 1.25;
+  white-space: nowrap;
+  box-shadow: none;
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--accent-lime);
+  color: var(--accent-lime-text);
+  border-color: var(--accent-lime);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #c3ffc5;
+  border-color: #c3ffc5;
+}
+
+.btn-dark {
+  background: var(--spruce-main);
+  color: var(--cream);
+  border-color: var(--spruce-main);
+}
+
+.btn-dark:hover:not(:disabled) {
+  background: var(--spruce-panel);
+  border-color: var(--spruce-panel);
+}
+
+.btn-outline-dark {
+  background: transparent;
+  color: var(--spruce-main);
+  border-color: var(--spruce-muted);
+}
+
+.btn-outline-dark:hover:not(:disabled) {
+  background: rgba(3, 33, 37, 0.05);
+}
+
+.btn-outline-light {
+  background: transparent;
+  color: var(--cream);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.btn-outline-light:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.btn-danger-outline {
+  background: transparent;
+  color: var(--danger-text);
+  border-color: var(--danger-border);
+}
+
+.btn-danger-outline:hover:not(:disabled) {
+  background: var(--danger-bg);
+}
+
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 0.8125rem;
+}
+
+.btn-lg {
+  padding: 14px 28px;
+  font-size: 1.05rem;
+}
+
+/* Status / context pills */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 2px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+}
+
+.badge-sim {
+  background: rgba(171, 255, 174, 0.15);
+  color: var(--spruce-light);
+  border: 1px solid rgba(171, 255, 174, 0.3);
+}
+
+.badge-sim-dark {
+  background: #08292d;
+  color: var(--accent-lime);
+  border: 1px solid rgba(171, 255, 174, 0.25);
+}
+
+.badge-blue {
+  background: var(--soft-blue);
+  color: var(--soft-blue-text);
+  border: 1px solid var(--soft-blue-border);
+}
+
+.badge-green {
+  background: var(--pale-green);
+  color: var(--pale-green-text);
+  border: 1px solid var(--pale-green-border);
+}
+
+.badge-caution {
+  background: var(--caution-bg);
+  color: var(--caution-text);
+  border: 1px solid var(--caution-border);
+}
+
+.badge-danger {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  border: 1px solid var(--danger-border);
+}
+
+.badge-dark {
+  background: var(--spruce-panel);
+  color: var(--spruce-light);
+  border: 1px solid var(--spruce-hairline);
+}
+
+/* Form inputs */
+.input, .textarea, .select {
+  width: 100%;
+  padding: 10px 14px;
+  background: #ffffff;
+  border: 1px solid var(--cream-hairline-strong);
+  border-radius: 2px;
+  color: var(--text-main);
+  font-size: 0.9375rem;
+  transition: border-color 0.15s ease;
+}
+
+.input:focus, .textarea:focus, .select:focus {
+  border-color: var(--spruce-muted);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-lime-glow);
+}
+
+.textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+/* Layout helpers */
+.container-max {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.section-gap {
+  padding-top: 80px;
+  padding-bottom: 80px;
+}
+
+@media (max-width: 768px) {
+  .section-gap {
+    padding-top: 48px;
+    padding-bottom: 48px;
+  }
+  .container-max {
+    padding: 0 16px;
+  }
+}
+
+/* Pulse animation for live indicators */
+@keyframes pulseGlow {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.15); }
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-lime);
+  display: inline-block;
+  animation: pulseGlow 2.5s infinite ease-in-out;
+}
+
+.pulse-dot-red {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff5c5c;
+  display: inline-block;
+  animation: pulseGlow 1.8s infinite ease-in-out;
+}
+
+/* Custom Scrollbar for feeds */
+.custom-scroll::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.custom-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scroll::-webkit-scrollbar-thumb {
+  background: rgba(3, 33, 37, 0.18);
+  border-radius: 3px;
+}
+.custom-scroll-dark::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
