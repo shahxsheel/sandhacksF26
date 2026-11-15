@@ -2,7 +2,7 @@
 
 import React from "react";
 import type { DemoState } from "../lib/types";
-import { AlertTriangle, Clock, MapPin, Shield, Users, FileText, HelpCircle } from "lucide-react";
+import { Clock, MapPin, Shield, Users, FileText, HelpCircle } from "lucide-react";
 
 interface IncidentHeaderProps {
   state: DemoState;
@@ -21,27 +21,6 @@ export function IncidentHeader({ state }: IncidentHeaderProps) {
 
   return (
     <div style={{ marginBottom: "24px" }}>
-      {/* Calm stay-safe and simulation reminder */}
-      <div
-        style={{
-          background: "var(--caution-bg)",
-          border: "1px solid var(--caution-border)",
-          borderRadius: "2px",
-          padding: "8px 14px",
-          marginBottom: "16px",
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-          fontSize: "0.8125rem",
-          color: "var(--caution-text)",
-        }}
-      >
-        <AlertTriangle size={15} style={{ flexShrink: 0 }} />
-        <span>
-          <strong>Staged demonstration.</strong> Professional response is simulated and nothing here is linked to 911 or real dispatch.
-        </span>
-      </div>
-
       <div className="card-light fl-card-pad incident-header">
         <div className="incident-header-top">
           <div style={{ minWidth: 0 }}>
