@@ -117,7 +117,7 @@ export default function HomePage() {
                 }}
               >
                 <Shield size={14} color="var(--accent-lime)" />
-                <span>Simulated campus fire scenario · Professional response is staged</span>
+                <span>Simulated La Jolla canyon fire scenario · Professional response is staged</span>
               </div>
             </div>
 
@@ -156,7 +156,7 @@ export default function HomePage() {
                     Active Incident Brief
                   </div>
                   <div style={{ fontSize: "1.1rem", fontWeight: 600, color: "var(--cream)", marginTop: "4px" }}>
-                    Smoke reported at Arts Building; occupancy unconfirmed
+                    Canyon brush fire reported; trail occupancy unconfirmed
                   </div>
                   <p style={{ fontSize: "0.8125rem", color: "var(--spruce-light)", marginTop: "6px", lineHeight: 1.45 }}>
                     Illustrative coordinator view only — not live AI. Claims are tagged by source; disputed items stay visible.
@@ -168,7 +168,7 @@ export default function HomePage() {
                   <div style={{ background: "rgba(0, 25, 28, 0.4)", padding: "8px 12px", borderRadius: "2px", border: "1px solid var(--spruce-hairline)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.8125rem" }}>
                       <span className="badge badge-blue" style={{ fontSize: "0.625rem" }}>REPORTED</span>
-                      <span>Smoke visible at west 2nd-floor windows</span>
+                      <span>Flames reported on the canyon slope</span>
                     </div>
                     <span style={{ background: "var(--spruce-deep)", color: "var(--accent-lime)", fontSize: "0.6875rem", padding: "1px 6px", borderRadius: "9999px" }}>
                       W-01
@@ -178,7 +178,7 @@ export default function HomePage() {
                   <div style={{ background: "rgba(115, 74, 0, 0.15)", padding: "8px 12px", borderRadius: "2px", border: "1px solid rgba(242, 210, 135, 0.3)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.8125rem" }}>
                       <span className="badge badge-caution" style={{ fontSize: "0.625rem" }}>DISPUTED</span>
-                      <span style={{ color: "#ffe7a8" }}>Occupancy unconfirmed (Repeated hearsay)</span>
+                      <span style={{ color: "#ffe7a8" }}>Hiker may remain on the trail (repeated hearsay)</span>
                     </div>
                     <span style={{ background: "var(--spruce-deep)", color: "#ffe7a8", fontSize: "0.6875rem", padding: "1px 6px", borderRadius: "9999px" }}>
                       W-01, W-02

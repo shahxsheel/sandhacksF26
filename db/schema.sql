@@ -73,6 +73,11 @@ CREATE TABLE IF NOT EXISTS fl_reports (
   UNIQUE (incident_id, seq)
 );
 
+-- Gemini credibility screening per report (added for simulation mode). NULL = sample report, never screened.
+ALTER TABLE fl_reports ADD COLUMN IF NOT EXISTS screening_status text CHECK (screening_status IN ('accepted', 'flagged', 'unscreened'));
+
+ALTER TABLE fl_reports ADD COLUMN IF NOT EXISTS screening_reason text;
+
 CREATE TABLE IF NOT EXISTS fl_volunteers (
   id uuid PRIMARY KEY,
   incident_id uuid NOT NULL REFERENCES fl_incidents (id) ON DELETE CASCADE,
@@ -165,3 +170,15 @@ CREATE TABLE IF NOT EXISTS fl_rate_limits (
   count integer NOT NULL DEFAULT 0,
   PRIMARY KEY (session_id, bucket)
 );
+
+-- Small provider results keyed by a SHA-256 of their exact inputs (transcripts of identical audio bytes, screening
+-- verdicts of identical reports). Text only, never media. Shared by every server that uses this database, so a staged
+-- simulation re-run reuses earlier results instead of paying again. Rows older than 30 days are pruned.
+CREATE TABLE IF NOT EXISTS fl_provider_cache (
+  key text PRIMARY KEY,
+  kind text NOT NULL CHECK (kind IN ('transcript', 'screening')),
+  value jsonb NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS fl_provider_cache_created_idx ON fl_provider_cache (created_at);

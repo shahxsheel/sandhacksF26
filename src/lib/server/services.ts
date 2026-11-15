@@ -2,24 +2,37 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import type { DemoState, WitnessReport } from "../types";
+import type { DemoState, ReportScreening, WitnessReport } from "../types";
 import { authorize, type Principal } from "./auth";
 import { budgetError, recordUsageDetail, releaseReservation, reserveBudget, takeRateSlot } from "./budget";
 import { BriefValidationError, buildBriefPrompt, buildRulesBrief, parseGeminiBrief, speechText } from "./brief-logic";
-import { LIMITS, PROVIDERS, RATE_LIMITS } from "./config";
+import { ELEVENLABS, LIMITS, PROVIDERS, RATE_LIMITS, geminiModel } from "./config";
 import { ApiError, cleanText } from "./http";
-import { MediaToolUnavailable, briefPhoto, probeAudio, processPhoto, removeMediaFiles, saveMediaFile } from "./media";
+import { MediaToolUnavailable, briefPhoto, geminiPhoto, probeAudio, processPhoto, removeMediaFiles, saveMediaFile } from "./media";
 import {
   ProviderUnavailable,
   cachedSpeech,
   elevenLabsConfigured,
   geminiConfigured,
   generateBriefJson,
+  generateScreeningJson,
   synthesizeSpeech,
   transcribeAudio,
   type BriefInput,
 } from "./providers";
-import { countReports, currentBrief, deleteMediaRows, insertReport, loadBriefContext, loadState, saveBrief } from "./store";
+import { ScreeningValidationError, buildScreeningPrompt, parseScreening, screeningCacheKey, transcriptCacheKey, type ScreeningReport } from "./screening-logic";
+import {
+  countReports,
+  currentBrief,
+  deleteMediaRows,
+  incidentFacts,
+  insertReport,
+  loadBriefContext,
+  loadState,
+  readProviderCache,
+  saveBrief,
+  writeProviderCache,
+} from "./store";
 
 /** State for the viewer the principal is acting as. The owner's coordinator view also carries share tokens. */
 export function stateFor(principal: Principal): Promise<DemoState> {
@@ -96,28 +109,41 @@ export async function submitReport(request: Request): Promise<{ state: DemoState
   }
   if (voiceDropped && !text && !photoBytes) throw new ApiError(503, "Voice notes are temporarily unavailable. Please type your report instead.");
 
-  // Transcription only for a validated recording, one attempt, budgeted. Failure never blocks the report.
+  // Transcription only for a validated recording, one attempt, budgeted. Identical audio reuses its cached transcript.
+  // Failure never blocks the report.
   let transcript: string | null = null;
   let transcriptionStatus: "completed" | "failed" | "not_requested" = audioFile ? "failed" : "not_requested";
   const audioId: string | null = audio ? randomUUID() : null;
-  if (audio && audioId && elevenLabsConfigured()) {
-    const reservation = await reserveBudget({
-      provider: PROVIDERS.elevenlabs.provider,
-      kind: "transcribe",
-      units: PROVIDERS.elevenlabs.transcribeReserve,
-      sessionId: principal.sessionId,
-      incidentId: principal.incidentId,
-      limit: RATE_LIMITS.transcribe,
-    });
-    if (reservation.ok) {
-      try {
-        transcript = await transcribeAudio(audio.bytes, audio.mime, `${audioId}.${audio.ext}`);
-        if (transcript) transcriptionStatus = "completed";
-      } catch (error) {
-        if (error instanceof ProviderUnavailable) await releaseReservation(reservation.usageId);
+  if (audio && audioId) {
+    const key = transcriptCacheKey(ELEVENLABS.transcriptionModel, audio.bytes);
+    const cached = await readProviderCache<{ text: string }>(key);
+    if (cached?.text) {
+      transcript = cached.text.slice(0, LIMITS.maxReportTextLength);
+      transcriptionStatus = "completed";
+    } else if (elevenLabsConfigured()) {
+      const reservation = await reserveBudget({
+        provider: PROVIDERS.elevenlabs.provider,
+        kind: "transcribe",
+        units: PROVIDERS.elevenlabs.transcribeReserve,
+        sessionId: principal.sessionId,
+        incidentId: principal.incidentId,
+        limit: RATE_LIMITS.transcribe,
+      });
+      if (reservation.ok) {
+        try {
+          transcript = await transcribeAudio(audio.bytes, audio.mime, `${audioId}.${audio.ext}`);
+          if (transcript) {
+            transcriptionStatus = "completed";
+            await writeProviderCache(key, "transcript", { text: transcript }).catch(() => undefined);
+          }
+        } catch (error) {
+          if (error instanceof ProviderUnavailable) await releaseReservation(reservation.usageId);
+        }
       }
     }
   }
+
+  const screening = await screenReport(principal, { location, text, transcript, hasPhoto: Boolean(photoBytes) }, photoBytes);
 
   const reportText = text || transcript || (audioFile ? "Voice note submitted; transcription is unavailable." : "Photo shared without a written description.");
   const photoId: string | null = photoBytes ? randomUUID() : null;
@@ -136,6 +162,7 @@ export async function submitReport(request: Request): Promise<{ state: DemoState
       transcript,
       transcriptionStatus,
       kind: audioMedia ? "voice" : photo ? "photo" : "text",
+      screening,
       photo,
       audio: audioMedia,
     });
@@ -144,6 +171,53 @@ export async function submitReport(request: Request): Promise<{ state: DemoState
     await removeMediaFiles(principal.incidentId, written).catch(() => undefined);
     await deleteMediaRows(principal.incidentId, [photoId, audioId].filter((v): v is string => Boolean(v))).catch(() => undefined);
     throw error;
+  }
+}
+
+// ---------------------------------------------------------------- screening
+
+/**
+ * One Gemini credibility screen per report, before it is stored. Identical inputs reuse the cached verdict and reserve
+ * nothing. Any failure (not configured, budget, rate, provider, invalid output) yields "unscreened": the report is
+ * kept and labelled, never silently dropped.
+ */
+async function screenReport(principal: Principal, report: ScreeningReport, photoBytes: Buffer | null): Promise<ReportScreening> {
+  const unscreened = (reason: string): ReportScreening => ({ status: "unscreened", reason });
+  try {
+    const incident = await incidentFacts(principal.incidentId);
+    const photo = photoBytes ? await geminiPhoto(photoBytes) : null;
+    const key = screeningCacheKey(geminiModel(), incident, report, photo);
+    const cached = await readProviderCache<ReportScreening>(key);
+    if (cached && (cached.status === "accepted" || cached.status === "flagged")) return { status: cached.status, reason: cached.reason };
+    if (!geminiConfigured()) return unscreened("AI screening is not configured on this server.");
+
+    const reservation = await reserveBudget({
+      provider: PROVIDERS.gemini.provider,
+      kind: "screen",
+      units: PROVIDERS.gemini.screenReserve,
+      sessionId: principal.sessionId,
+      incidentId: principal.incidentId,
+      limit: RATE_LIMITS.screen,
+    });
+    if (!reservation.ok) return unscreened(reservation.reason === "rate" ? "AI screening limit reached for this workspace." : "AI screening allowance is used up.");
+
+    const input: BriefInput = [{ type: "text", text: buildScreeningPrompt(incident, report) }];
+    if (photo) input.push({ type: "text", text: "Photo attached to this report:" }, { type: "image", data: photo.toString("base64"), mime_type: "image/jpeg" });
+    let result;
+    try {
+      result = await generateScreeningJson(input);
+    } catch (error) {
+      if (error instanceof ProviderUnavailable) await releaseReservation(reservation.usageId);
+      return unscreened("AI screening did not respond.");
+    }
+    await recordUsageDetail(reservation.usageId, { inputTokens: result.inputTokens, outputTokens: result.outputTokens }).catch(() => undefined);
+    const verdict = parseScreening(result.text);
+    await writeProviderCache(key, "screening", verdict).catch(() => undefined);
+    return verdict;
+  } catch (error) {
+    if (error instanceof ScreeningValidationError) return unscreened("AI screening returned an unusable answer.");
+    if (error instanceof ApiError && error.status === 404) throw error;
+    return unscreened("AI screening did not respond.");
   }
 }
 

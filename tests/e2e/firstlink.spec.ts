@@ -292,7 +292,8 @@ test.describe("UI — readable headings without horizontal overflow", () => {
     await expect(page.getByRole("button", { name: "Play audio preview" })).toBeVisible();
     await page.getByRole("button", { name: "Delete audio recording" }).click();
     await page.getByRole("button", { name: "Send Observation" }).click();
-    await expect(page.getByText("Observation Submitted")).toBeVisible();
+    // Submission includes one Gemini screening on first sight of this input (cached afterwards).
+    await expect(page.getByText("Observation Submitted")).toBeVisible({ timeout: 45_000 });
     await page.getByRole("button", { name: "Submit Another Observation" }).click();
     await expect(page.getByRole("heading", { name: "Before you report" })).toBeVisible();
     await expect(page.locator('[name="consent"]')).not.toBeChecked();
@@ -389,5 +390,41 @@ test.describe("UI — landing navigation contract", () => {
     await openDemo.click();
     await expect(page).toHaveURL(/\/dashboard/);
     await assertMainHeadingReadable(page);
+  });
+});
+
+test.describe("UI — normal and simulation modes", () => {
+  test("normal mode explains the witness flow; simulation mode lists five staged reports with credits", async ({ page }) => {
+    await page.goto("/dashboard");
+    await expect(page.getByRole("heading", { name: "How a witness report reaches the coordinator" })).toBeVisible();
+    await expect(page.locator(".flow-step")).toHaveCount(6);
+    await expect(page.getByRole("link", { name: /Open witness form/ })).toHaveAttribute("href", /^\/report\/[0-9a-f-]{36}$/);
+
+    await page.getByRole("radio", { name: "Simulation mode" }).click();
+    await expect(page).toHaveURL(/mode=simulation/);
+    await expect(page.getByRole("radio", { name: "Simulation mode" })).toHaveAttribute("aria-checked", "true");
+    await expect(page.locator(".sim-card")).toHaveCount(5);
+    for (const label of ["Text only", "Photo only", "Voice only", "Text, photo and voice", "Fabricated report"]) {
+      await expect(page.getByRole("heading", { name: label, exact: true })).toBeVisible();
+    }
+    await expect(page.getByText("Should be withheld")).toHaveCount(1);
+    await expect(page.getByText(/Wikimedia Commons, not pictures of this staged incident/)).toBeVisible();
+    await expect(page.getByText(/Cal Fire San Diego · public domain/)).toBeVisible();
+    await expect(page.getByText("Withheld by Gemini screening (0)")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Send all 5" })).toBeEnabled();
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+
+    // The chosen mode survives a reload for this viewer.
+    await page.goto("/dashboard");
+    await expect(page.locator(".sim-card")).toHaveCount(5);
+  });
+
+  test("staged simulation media is served for upload", async ({ request }) => {
+    for (const path of ["/sim/lilac-fire-road.jpg", "/sim/witch-creek-ridge.jpg", "/sim/sd-skyline-smoke.jpg", "/sim/voice-parking-deck.mp3", "/sim/voice-canyon-rim.mp3"]) {
+      const res = await request.get(path);
+      expect(res.ok(), path).toBeTruthy();
+      expect((await res.body()).byteLength).toBeGreaterThan(10_000);
+    }
   });
 });

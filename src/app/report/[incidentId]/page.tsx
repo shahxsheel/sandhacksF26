@@ -296,7 +296,7 @@ export default function WitnessReportPage({ params }: ReportPageProps) {
                 </h1>
 
                 <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginTop: "4px" }}>
-                  Share what you see or hear outside the Arts Building to help coordinators establish an accurate picture.
+                  Share what you see or hear near the North Campus canyon to help coordinators establish an accurate picture.
                 </p>
               </div>
 
@@ -348,7 +348,7 @@ export default function WitnessReportPage({ params }: ReportPageProps) {
                     required
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
-                    placeholder="e.g. Across the plaza near the west lawn, 50m from Arts Building"
+                    placeholder="e.g. North Plaza, about 100 m from the canyon edge"
                     className="input"
                   />
                   <span style={{ fontSize: "0.75rem", color: "var(--text-dim)", marginTop: "4px", display: "block" }}>
@@ -367,7 +367,7 @@ export default function WitnessReportPage({ params }: ReportPageProps) {
                     maxLength={1200}
                     value={text}
                     onChange={(e) => setText(e.target.value)}
-                    placeholder="Describe smoke, flames, people exiting, or conditions you personally see. If sharing something heard second-hand, please note that."
+                    placeholder="Describe smoke, flames, wind direction, people leaving the area, or conditions you personally see. If sharing something heard second-hand, please note that."
                     className="textarea"
                     rows={4}
                   />

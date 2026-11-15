@@ -106,12 +106,15 @@ export async function removeIncidentMedia(incidentId: string): Promise<void> {
   await rm(incidentDir(incidentId), { recursive: true, force: true });
 }
 
-/** Smaller copies for Gemini input: bounded edge, base64 JPEG. */
-export async function briefPhoto(incidentId: string, fileName: string): Promise<string> {
-  const original = await readFile(mediaPath(incidentId, fileName));
-  const resized = await sharp(original, { limitInputPixels: 50_000_000 })
+/** Smaller JPEG copy for Gemini input, bounded edge. */
+export function geminiPhoto(original: Buffer): Promise<Buffer> {
+  return sharp(original, { limitInputPixels: 50_000_000 })
     .resize({ width: LIMITS.briefPhotoMaxEdge, height: LIMITS.briefPhotoMaxEdge, fit: "inside", withoutEnlargement: true })
     .jpeg({ quality: 72 })
     .toBuffer();
-  return resized.toString("base64");
+}
+
+/** Stored photo as base64 Gemini input. */
+export async function briefPhoto(incidentId: string, fileName: string): Promise<string> {
+  return (await geminiPhoto(await readFile(mediaPath(incidentId, fileName)))).toString("base64");
 }

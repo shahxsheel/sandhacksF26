@@ -2,12 +2,12 @@
 
 import React from "react";
 import type { WitnessReport } from "../lib/types";
-import { Flag, Flame } from "lucide-react";
+import { Flag } from "lucide-react";
 
 /** Positions of the two staged sample witnesses in this scenario's schematic. */
 const STAGED_POSITIONS = [
-  { sourceLabel: "W-01", cx: 160, cy: 255, labelDy: 25 },
-  { sourceLabel: "W-02", cx: 460, cy: 115, labelDy: -17 },
+  { sourceLabel: "W-01", cx: 335, cy: 255, labelDy: 25 },
+  { sourceLabel: "W-02", cx: 235, cy: 130, labelDy: 30 },
 ];
 
 function shorten(text: string, max: number): string {
@@ -107,7 +107,7 @@ export function SchematicMap({
             SCENE SCHEMATIC
           </span>
           <span style={{ fontSize: "0.75rem", color: "var(--spruce-light)" }}>
-            Arts Building & North Campus Area
+            North Campus canyon edge · La Jolla
           </span>
         </div>
         <div
@@ -150,106 +150,23 @@ export function SchematicMap({
           {/* Grid background */}
           <rect width="100%" height="100%" fill="url(#grid)" />
 
-          {/* Streets / Campus Pathways */}
-          {/* North Road: Campus Way */}
-          <rect x="0" y="30" width="800" height="36" fill="#031a1d" stroke="rgba(161, 194, 198, 0.15)" strokeWidth="1" />
-          <text x="30" y="53" fill="var(--spruce-light)" fontSize="11" letterSpacing="0.08em" fontWeight="600">
-            CAMPUS WAY (NORTH ACCESS)
-          </text>
-
-          {/* South Road: Plaza Walk */}
-          <rect x="0" y="420" width="800" height="40" fill="#031a1d" stroke="rgba(161, 194, 198, 0.15)" strokeWidth="1" />
-          <text x="30" y="445" fill="var(--spruce-light)" fontSize="11" letterSpacing="0.08em" fontWeight="600">
-            PLAZA WALK (PEDESTRIAN ACCESS)
-          </text>
-
-          {/* West Pathway: Library Walk */}
-          <rect x="30" y="66" width="36" height="354" fill="#031a1d" stroke="rgba(161, 194, 198, 0.15)" strokeWidth="1" />
-          <text x="-250" y="53" fill="var(--spruce-light)" fontSize="11" letterSpacing="0.08em" fontWeight="600" transform="rotate(-90)">
-            LIBRARY WALK
-          </text>
-
-          {/* Open Courtyard Area */}
-          <rect x="100" y="100" width="660" height="290" fill="#05282d" rx="2" stroke="rgba(255, 255, 255, 0.05)" strokeWidth="1" />
-
-          {/* Main Structure: Arts Building Footprint */}
-          <g>
-            <rect
-              x="260"
-              y="160"
-              width="280"
-              height="180"
-              fill="#09383e"
-              stroke="#437278"
-              strokeWidth="1.5"
-              rx="2"
-            />
-            {/* Building Interior Layout lines */}
-            <line x1="260" y1="230" x2="540" y2="230" stroke="rgba(255, 255, 255, 0.08)" strokeWidth="1" strokeDasharray="3 3" />
-            <line x1="390" y1="160" x2="390" y2="340" stroke="rgba(255, 255, 255, 0.08)" strokeWidth="1" strokeDasharray="3 3" />
-
-            <text x="280" y="195" fill="var(--cream)" fontSize="14" fontWeight="600" letterSpacing="-0.01em">
-              ARTS BUILDING
-            </text>
-            <text x="280" y="215" fill="var(--spruce-light)" fontSize="11">
-              Main Academic Structure · 3 Floors
-            </text>
-
-            {/* Second floor smoke origin area */}
-            <rect
-              x="410"
-              y="170"
-              width="120"
-              height="55"
-              fill="url(#smokeStripe)"
-              stroke="#ff8f8f"
-              strokeWidth="1"
-              rx="2"
-            />
-            <g transform="translate(420, 190)">
-              <Flame size={14} color="#ff8f8f" />
-              <text x="20" y="11" fill="#ffb4b4" fontSize="10" fontWeight="600">
-                2nd Floor Smoke Reported
-              </text>
-            </g>
-
-            {/* West Entrance */}
-            <rect x="254" y="240" width="8" height="30" fill="var(--accent-lime)" rx="1" />
-            <text x="180" y="258" fill="var(--cream)" fontSize="10" fontWeight="500">
-              West Entrance →
-            </text>
-
-            {/* North Entrance */}
-            <rect x="340" y="154" width="30" height="8" fill="var(--accent-lime)" rx="1" />
-            <text x="330" y="145" fill="var(--cream)" fontSize="10" fontWeight="500">
-              ↑ North Entrance
-            </text>
-          </g>
-
-          {/* Staging Area: North Plaza */}
-          <g>
-            <rect
-              x="520"
-              y="85"
-              width="230"
-              height="65"
-              fill="rgba(171, 255, 174, 0.08)"
-              stroke="var(--accent-lime)"
-              strokeWidth="1.5"
-              strokeDasharray="4 4"
-              rx="2"
-            />
-            {/* Staging Flag Pin */}
-            <g transform="translate(535, 100)">
-              <circle cx="12" cy="12" r="14" fill="#042718" stroke="var(--accent-lime)" strokeWidth="1.5" />
-              <Flag size={14} color="var(--accent-lime)" x="5" y="5" />
-              <text x="35" y="12" fill="var(--cream)" fontSize="11" fontWeight="600">
-                DESIGNATED STAGING AREA
-              </text>
-              <text x="35" y="27" fill="var(--spruce-light)" fontSize="10">
-                North Plaza · Volunteer assembly point
-              </text>
-            </g>
+          {/* Campus, rim walkway and canyon are illustrative, not navigation. */}
+          <rect x="35" y="180" width="105" height="100" fill="#09383e" stroke="#437278" />
+          <rect x="160" y="185" width="100" height="95" fill="#09383e" stroke="#437278" />
+          <text x="45" y="205" fill="var(--cream)" fontSize="11">Campus buildings</text>
+          <path d="M 310 75 L 310 335" stroke="#437278" strokeWidth="14" fill="none" />
+          <text x="320" y="192" fill="var(--spruce-light)" fontSize="11">West walkway · canyon rim</text>
+          <path d="M 410 65 Q 350 160 420 330 M 465 65 Q 405 160 475 330 M 520 65 Q 460 160 530 330 M 575 65 Q 515 160 585 330 M 630 65 Q 570 160 640 330 M 685 65 Q 625 160 695 330 M 740 65 Q 680 160 750 330" fill="none" stroke="#437278" strokeOpacity="0.45" strokeWidth="2" />
+          <path d="M 485 180 Q 555 150 635 190 L 650 255 Q 560 285 490 245 Z" fill="url(#smokeStripe)" stroke="#ff8f8f" />
+          <text x="495" y="215" fill="#ffb4b4" fontSize="11">Reported fire area</text>
+          <text x="495" y="230" fill="#ffb4b4" fontSize="10">(canyon slope)</text>
+          <path d="M 735 90 Q 655 150 710 220 T 680 315" fill="none" stroke="var(--spruce-light)" strokeWidth="2" strokeDasharray="5 5" />
+          <text x="535" y="315" fill="var(--cream)" fontSize="11">Canyon trail (status unknown)</text>
+          <rect x="70" y="70" width="200" height="80" fill="rgba(171, 255, 174, 0.08)" stroke="var(--accent-lime)" strokeDasharray="4 4" />
+          <g transform="translate(85, 80)">
+            <Flag size={14} color="var(--accent-lime)" />
+            <text x="22" y="12" fill="var(--cream)" fontSize="11" fontWeight="600">NORTH PLAZA</text>
+            <text x="22" y="27" fill="var(--spruce-light)" fontSize="10">Designated staging point</text>
           </g>
 
           {/* Staged sample witnesses have known positions in this scenario. */}
@@ -313,7 +230,7 @@ export function SchematicMap({
           </span>
           <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <span style={{ width: "10px", height: "10px", borderRadius: "2px", background: "rgba(255, 143, 143, 0.4)", border: "1px solid #ff8f8f", display: "inline-block" }} />
-            Reported smoke zone
+            Reported fire area
           </span>
         </div>
         <span style={{ fontSize: "0.75rem", color: "var(--text-dim)" }}>

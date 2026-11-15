@@ -39,6 +39,7 @@ export const PROVIDERS = {
   gemini: {
     provider: "gemini",
     briefReserve: 200_000, // micro-USD per request (USD 0.20)
+    screenReserve: 50_000, // micro-USD per single-report screening (USD 0.05): one photo, <=600 output tokens
     hardCap: 16_000_000, // never allow the shared cap row above USD 16 of the USD 20 limit
   },
   elevenlabs: {
@@ -52,6 +53,7 @@ export const PROVIDERS = {
 export const RATE_LIMITS = {
   /** [bucket, max requests, window seconds] per workspace session. */
   brief: ["gemini:brief", 6, 3600],
+  screen: ["gemini:screen", 16, 3600],
   transcribe: ["elevenlabs:stt", 4, 86_400],
   speech: ["elevenlabs:tts", 6, 3600],
   report: ["report:submit", 20, 3600],

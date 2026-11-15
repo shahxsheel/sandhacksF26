@@ -1,6 +1,11 @@
 export type ReportKind = "text" | "photo" | "voice";
 export type ClaimKind = "reported" | "observed" | "disputed";
 export type AssignmentStatus = "approved" | "accepted" | "declined";
+/** Gemini credibility screening of a submitted report. Flagged reports stay out of the feed, map and brief. */
+export interface ReportScreening {
+  status: "accepted" | "flagged" | "unscreened";
+  reason: string;
+}
 export interface Incident {
   id: string;
   title: string;
@@ -25,6 +30,7 @@ export interface WitnessReport {
   createdAt: string;
   isSample?: boolean;
   transcriptionStatus?: "completed" | "failed" | "not_requested";
+  screening?: ReportScreening;
 }
 export interface BriefClaim { id: string; text: string; reportIds: string[]; kind: ClaimKind; note?: string }
 export interface BriefConflict { text: string; reportIds: string[] }
@@ -68,5 +74,7 @@ export interface DemoState {
   assignments: Assignment[];
   events: TimelineEvent[];
   access?: { witnessToken: string; volunteerToken: string };
+  /** Coordinator only: reports withheld by screening, kept out of `reports`. */
+  withheldReports?: WitnessReport[];
   viewerRole: "coordinator" | "witness" | "volunteer";
 }

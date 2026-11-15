@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import type { WitnessReport } from "../lib/types";
-import { MessageSquare, Camera, Mic, ChevronDown, ChevronUp, Clock, MapPin, Eye, FileAudio, AlertCircle } from "lucide-react";
+import { MessageSquare, Camera, Mic, ChevronDown, ChevronUp, Clock, MapPin, Eye, FileAudio, AlertCircle, ShieldCheck } from "lucide-react";
 
 interface WitnessFeedProps {
   reports: WitnessReport[];
@@ -130,12 +130,12 @@ export function WitnessFeed({
                     </span>
 
                     {/* Report kind pill */}
-                    {report.kind === "photo" && (
+                    {report.photoId && (
                       <span className="badge badge-blue" style={{ fontSize: "0.6875rem" }}>
                         <Camera size={11} /> Photo Included
                       </span>
                     )}
-                    {report.kind === "voice" && (
+                    {report.audioId && (
                       <span className="badge badge-green" style={{ fontSize: "0.6875rem" }}>
                         <Mic size={11} /> Voice Recorded
                       </span>
@@ -143,6 +143,16 @@ export function WitnessFeed({
                     {report.isSample && (
                       <span className="badge badge-dark" style={{ fontSize: "0.6875rem" }}>
                         Sample
+                      </span>
+                    )}
+                    {report.screening?.status === "accepted" && (
+                      <span className="badge badge-green" style={{ fontSize: "0.6875rem" }} title={report.screening.reason}>
+                        <ShieldCheck size={11} /> Gemini screened
+                      </span>
+                    )}
+                    {report.screening?.status === "unscreened" && (
+                      <span className="badge badge-caution" style={{ fontSize: "0.6875rem" }} title={report.screening.reason}>
+                        Not screened
                       </span>
                     )}
                   </div>

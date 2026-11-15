@@ -10,6 +10,7 @@ import { VolunteerCards } from "../../components/VolunteerCards";
 import { CoordinatorNotes } from "../../components/CoordinatorNotes";
 import { TimelineFeed } from "../../components/TimelineFeed";
 import { SessionLoadPanel } from "../../components/SessionLoadPanel";
+import { DemoModePanel, ModeSwitch, type DemoMode } from "../../components/DemoModePanel";
 import { fetchSession, resetSession, ApiError } from "../../components/api";
 import type { DemoState } from "../../lib/types";
 import { AlertCircle } from "lucide-react";
@@ -20,6 +21,32 @@ export default function DashboardPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const [mode, setMode] = useState<DemoMode>("normal");
+
+  // ?mode=simulation wins (shareable for rehearsals); otherwise the viewer's last choice.
+  useEffect(() => {
+    const fromUrl = new URLSearchParams(window.location.search).get("mode");
+    let stored: string | null = null;
+    try {
+      stored = window.localStorage.getItem("firstlink:mode");
+    } catch {
+      // storage unavailable: default to normal mode
+    }
+    const initial = fromUrl ?? stored;
+    if (initial === "simulation" || initial === "normal") setMode(initial);
+  }, []);
+
+  const changeMode = (next: DemoMode) => {
+    setMode(next);
+    try {
+      window.localStorage.setItem("firstlink:mode", next);
+    } catch {
+      // per-viewer convenience only
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.set("mode", next);
+    window.history.replaceState(null, "", url);
+  };
 
   const loadSession = useCallback(async (quiet = false) => {
     if (!quiet) setIsLoading(true);
@@ -141,6 +168,20 @@ export default function DashboardPage() {
 
           <IncidentHeader state={state} />
 
+          <div className="mode-row">
+            <ModeSwitch mode={mode} onChange={changeMode} />
+            <span className="mode-row-hint">
+              {mode === "normal" ? "Walk through the witness flow step by step." : "Send staged witness reports through the live pipeline."}
+            </span>
+          </div>
+          <DemoModePanel
+            mode={mode}
+            onModeChange={changeMode}
+            state={state}
+            onStateUpdated={handleStateUpdated}
+            onSelectReport={handleSelectReport}
+          />
+
           <div className="dashboard-columns">
             <div className="dashboard-col">
               <div className="dash-brief">
@@ -209,7 +250,7 @@ export default function DashboardPage() {
       >
         <div className="container-max" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
           <div>
-            <strong>FirstLink demonstration workspace</strong> · Staged campus incident scenario
+            <strong>FirstLink demonstration workspace</strong> · Staged La Jolla canyon fire scenario
           </div>
           <div style={{ color: "var(--spruce-muted)" }}>
             Professional responders simulated · Keep perimeters clear

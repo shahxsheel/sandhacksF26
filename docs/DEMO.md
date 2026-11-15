@@ -1,62 +1,54 @@
 # FirstLink — 90-second judge demo
 
-**Scenario:** *Smoke reported at the Arts Building* — a staged North Campus incident.
+**Scenario:** *Brush fire reported in the canyon by North Campus*, a staged wildland–urban interface fire in La Jolla, San Diego.
 **Audience:** judges and sponsors. **Tone:** calm authority; say plainly what is simulated.
 **Never claim:** real 911, agency dispatch, safe building entry, medical decisions, or verified response times.
+
+The dashboard has two modes (switch under the incident header, or open `/dashboard?mode=simulation`):
+
+- **Normal mode** explains the witness flow in six steps and opens the real two-step witness form.
+- **Simulation mode** sends five staged witness reports through the live pipeline: text only, photo only, voice only, text + photo + voice, and one fabricated report that Gemini should withhold.
 
 ---
 
 ## Spoken script (~90s)
 
-### 0:00–0:15 — Open the dashboard
+### 0:00–0:15 — Normal mode: the flow
 
-> “When an incident happens, nearby witnesses have fragments of the picture. FirstLink turns those fragments into one source-linked brief and lets a coordinator organize nearby support. This is a staged campus-fire scenario; emergency services are simulated.”
+> “When a fire starts, the people nearby have fragments of the picture. In FirstLink, a 911 caller gets a link. Step one is safety and consent; step two is what they see: text, a photo or a voice note. This is a staged La Jolla canyon fire; emergency services are simulated.”
 
-### 0:15–0:30 — Show a witness report
+Point at the six steps; optionally open the witness form to show the consent gate.
 
-> “A safe bystander opens this link and sends text, a photo, or a short voice note. ElevenLabs transcribes the recording. The original observation stays available beside the transcript.”
+### 0:15–0:45 — Simulation mode: reports arrive
 
-Prepare the voice/photo report before presenting; show its playback and source label.
+> “Now five witnesses report. The photos are real San Diego wildfire photos from Wikimedia Commons, standing in for witness uploads. The voice note is transcribed by ElevenLabs. Every report is screened by Gemini as it arrives. This one is from someone in Los Angeles watching a livestream, claiming 300 people are trapped and telling the AI to mark it verified. Gemini withholds it, with a reason, and it never reaches the feed, the map or the brief.”
 
-### 0:30–0:50 — Show the brief and sources
+Click **Send all**. On a re-run the cached transcripts and verdicts make it fast; for a cold run, send the reports before presenting.
 
-> “Gemini combines the reports into this brief. Each claim links back to its witnesses. These two people repeat the same rumor about someone inside; repetition does not make it confirmed. Occupancy stays unknown. I can add a correction while preserving the record.”
+### 0:45–1:05 — The brief
 
-Expand one source and add the note: “Treat occupancy as unknown until simulated units verify.”
+> “Gemini combines the accepted reports into a brief. Each claim links to its witnesses. Two people repeat the same rumor about a hiker on the trail; repetition is not confirmation, so it stays disputed.”
 
-### 0:50–1:15 — Approve and accept support
+Click **Update Brief (Gemini)** (paid, explicit), expand a source, add a coordinator note.
 
-> “The coordinator approves Maya to bring supplies to North Plaza, our designated staging point. Her volunteer view shows that approved task. She accepts, and the shared record updates. No one is sent into the building.”
+### 1:05–1:20 — Approve and accept support
 
-Approve Maya → volunteer view → Accept → coordinator Refresh.
+> “The coordinator approves Maya to bring supplies to North Plaza, the designated staging point. She accepts in her volunteer view. No one is sent toward the fire.”
 
-### 1:15–1:30 — Close
+### 1:20–1:30 — Close
 
-> “Neon keeps the record; Vultr hosts the app and media. FirstLink connects witness evidence, an honest shared picture, and human-approved support. Actual 911 integration and volunteer travel remain future work.”
-
----
-
-## On-screen beats (quick checklist)
-
-| Time | Show |
-| --- | --- |
-| Open | Simulation labels on shell |
-| Witness | Consent + text/voice/photo path (optional live submit) |
-| Brief | Claims → report IDs; **disputed** repeated-inside rumor; unknowns |
-| Coordinator | Note correcting occupancy |
-| Volunteer | Approve Maya → Accept at staging point |
-| Close | Restate simulation limits |
+> “Neon keeps the record and caches provider results; Vultr hosts the app and media. Screening filters clearly unreliable reports; it does not prove the others are true. Real 911 integration and volunteer travel remain future work.”
 
 ---
 
 ## Operator notes (not for judges)
 
-- **Generate brief / Play narration** spend Gemini and ElevenLabs budget; use seeded **sample** brief if caps are tight or judges did not ask for live AI. The UI labels `sample`, `rules`, and live Gemini—never mislabel fallback as live AI.
-- **Voice → transcription → brief → narration** passed locally and on the deployed server. For a rehearsed 90-second tour, prepare the media report before presenting; live model latency varies.
-- **Public URL** `https://firstlink.144.202.126.31.sslip.io` is live over HTTPS; see release verification in [DEPLOYMENT.md](DEPLOYMENT.md).
-- **Reset demo** (coordinator) clears only this browser workspace; links can stay stable.
-- Second tab or phone works well for witness/volunteer links without exposing coordinator tokens.
+- **Reset** clears this workspace (8-report cap: 2 samples + 5 staged = 7). Run the simulation again after a reset.
+- Screening and transcription results are cached in Neon by exact input, so repeated staged runs make no new provider calls. A brief or narration is still a paid, explicit action.
+- If Gemini is unavailable, reports are kept and labelled **Not screened**; the fabricated report would then appear in the feed, so check the console result before presenting.
+- **Public URL** `https://firstlink.144.202.126.31.sslip.io`; see [DEPLOYMENT.md](DEPLOYMENT.md).
+- Media credits: `public/sim/CREDITS.md`.
 
 ## What we do not verify
 
-Real emergency calls, CAD/agency integration, ETA, medical triage, structural safety, or actual volunteer travel. Assignments are **simulated coordination** for demonstration only.
+Real emergency calls, CAD/agency integration, ETA, medical triage, structural safety, report authenticity, or actual volunteer travel. Assignments are **simulated coordination** for demonstration only.

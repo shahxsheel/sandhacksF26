@@ -31,6 +31,13 @@ Runtime needs `ffprobe` (ffmpeg package) on `PATH` to accept voice notes; withou
 - Providers: one request each, no retries; raw provider errors are never logged or returned.
 - Uploads: 4 MB each, 9 MB multipart. Photos are decoded with sharp (JPEG/PNG/WebP only, single frame), EXIF-rotated, stripped, resized to <=1600 px and re-encoded to JPEG. Audio must probe as a real audio-only container (WebM/Ogg/MP4/MP3/WAV/AAC) and its measured packet duration must be <=45 s (headers are not trusted). Files live at `DATA_DIR/media/<incidentId>/<uuid>.<ext>` with server-generated names and are served only by `/api/media/[id]` after authorization.
 
+## Report screening (simulation mode)
+
+- Each `POST /api/reports` runs one Gemini Interactions request (`store:false`, JSON schema `{decision, reason}`, <=600 output tokens, 30 s timeout, no retries) with the incident facts, the report's location/text/transcript and a <=1024 px copy of its photo. Names are not sent.
+- `exclude` stores the report with `screening_status = 'flagged'`; it is filtered out of `state.reports`, `loadBriefContext` and brief photos, and appears only in the coordinator's `withheldReports`. Failures store `unscreened` and keep the report visible with that label.
+- Budget: USD 0.05 reservation per screening against the same Gemini cap (rate limit 16/hour/workspace). First live runs measured well under that.
+- `fl_provider_cache` (key = SHA-256 of model, prompt version and exact inputs) stores screening verdicts and transcripts (text only). A cache hit reserves nothing. Local and deployed servers share it through Neon, so the five staged simulation reports cost provider calls once in total. Rows older than 30 days are pruned.
+
 ## Retention
 
 Expired workspaces (and their media directories and narration cache entries older than 7 days) are purged opportunistically (about 1 in 10 workspace creations, 10 sessions per pass). `fl_usage` rows older than 120 days are pruned; `fl_budgets` holds the authoritative totals. Reset a budget deliberately with SQL only if the user authorizes more spend.

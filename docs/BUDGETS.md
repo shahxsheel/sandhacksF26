@@ -12,3 +12,9 @@ These are recorded operating limits, not provider-side hard caps or verified acc
 ## Delegation preference
 
 The user asked for work to be distributed across providers to conserve primary-agent usage. Claude Haiku 5.5 prepared the lazy database client; an Antigravity delegate configured for Gemini 3.8 Flash prepared the Vultr checklist. Both tasks completed. Continue with bounded assignments to available providers; keep credential handling in the primary session and do not send secrets in delegate briefs. These tasks used the existing provider connections, not the app's Gemini API key.
+
+## Simulation mode additions (2026-11-15)
+
+- Two short synthetic witness voice clips (433 characters total) were generated once with ElevenLabs TTS for `public/sim/`. Before generation the account reported 290 of 131,000 characters used.
+- Report screening reserves USD 0.05 of the Gemini cap per uncached report. Transcripts and screening verdicts are cached in Neon by exact input hash, so re-running the staged simulation is free after the first run.
+- Before this change the app had reserved USD 1.20 of Gemini and 21,000 ElevenLabs units (conservative reservations, not billed usage).

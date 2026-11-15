@@ -2,7 +2,7 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import { createDemoSeed } from "../demo-seed";
-import type { Assignment, CoordinatorNote, DemoState, Incident, TimelineEvent, Volunteer, WitnessReport } from "../types";
+import type { Assignment, CoordinatorNote, DemoState, Incident, ReportScreening, TimelineEvent, Volunteer, WitnessReport } from "../types";
 import { deriveToken, newSessionSecret, sha256 } from "./auth";
 import type { BriefCore } from "./brief-logic";
 import { LIMITS } from "./config";
@@ -52,8 +52,11 @@ function mapReport(row: Row): WitnessReport {
   if (row.audio_media_id) report.audioId = String(row.audio_media_id);
   if (row.is_sample) report.isSample = true;
   if (row.transcription_status) report.transcriptionStatus = row.transcription_status;
+  if (row.screening_status) report.screening = { status: row.screening_status, reason: row.screening_reason ?? "" };
   return report;
 }
+
+const isWithheld = (report: WitnessReport): boolean => report.screening?.status === "flagged";
 
 const mapVolunteer = (row: Row): Volunteer => ({
   id: String(row.id),
@@ -102,9 +105,11 @@ export async function loadState(incidentId: string, viewer: Viewer, secret?: str
   const base = { incident: mapIncident(row), viewerRole: viewer };
 
   if (viewer === "coordinator") {
+    const mapped = reports.map(mapReport);
     const state: DemoState = {
       ...base,
-      reports: reports.map(mapReport),
+      reports: mapped.filter((r) => !isWithheld(r)),
+      withheldReports: mapped.filter(isWithheld),
       brief,
       volunteers: volunteers.map(mapVolunteer),
       assignments: assignments.map(mapAssignment),
@@ -208,6 +213,7 @@ export async function purgeExpired(): Promise<void> {
     await sql`DELETE FROM fl_sessions WHERE id = ANY(${expired.map((r) => String(r.session_id))}::uuid[])`;
   }
   await sql`DELETE FROM fl_usage WHERE created_at < now() - interval '120 days'`;
+  await sql`DELETE FROM fl_provider_cache WHERE created_at < now() - interval '30 days'`;
   await pruneSpeechCache(7 * 86_400_000);
 }
 
@@ -222,8 +228,16 @@ export interface NewReport {
   transcript: string | null;
   transcriptionStatus: "completed" | "failed" | "not_requested";
   kind: "text" | "photo" | "voice";
+  screening: ReportScreening;
   photo?: { id: string; fileName: string; bytes: number; mime: string };
   audio?: { id: string; fileName: string; bytes: number; mime: string };
+}
+
+/** Incident facts the per-report screening prompt needs. */
+export async function incidentFacts(incidentId: string): Promise<Pick<Incident, "title" | "category" | "address" | "description">> {
+  const rows = await getDatabase()`SELECT title, category, address, description FROM fl_incidents WHERE id = ${incidentId}::uuid`;
+  if (!rows[0]) throw new ApiError(404, "Workspace not found or the access link is not valid.");
+  return { title: rows[0].title, category: rows[0].category, address: rows[0].address, description: rows[0].description };
 }
 
 export async function countReports(incidentId: string): Promise<number> {
@@ -235,15 +249,18 @@ export async function countReports(incidentId: string): Promise<number> {
 export async function insertReport(r: NewReport): Promise<WitnessReport> {
   const sql = getDatabase();
   const who = r.name.split(" ")[0]?.slice(0, 40) || "A witness";
-  const eventText = `${who} shared a report from ${r.location.slice(0, 60)}.`;
+  const eventText =
+    r.screening.status === "flagged"
+      ? `A report was withheld from the feed by Gemini screening: ${r.screening.reason.slice(0, 160)}`
+      : `${who} shared a report from ${r.location.slice(0, 60)}.`;
   try {
     const rows = await sql`
       WITH cap AS (
         SELECT count(*)::int AS n, coalesce(max(seq), 0) + 1 AS next FROM fl_reports WHERE incident_id = ${r.incidentId}::uuid
       ), rep AS (
-        INSERT INTO fl_reports (id, incident_id, seq, source_label, name, location, text, transcript, photo_media_id, audio_media_id, kind, transcription_status, is_sample)
+        INSERT INTO fl_reports (id, incident_id, seq, source_label, name, location, text, transcript, photo_media_id, audio_media_id, kind, transcription_status, is_sample, screening_status, screening_reason)
         SELECT ${r.id}::uuid, ${r.incidentId}::uuid, cap.next, 'W-' || lpad(cap.next::text, 2, '0'), ${r.name}::text, ${r.location}::text, ${r.text}::text, ${r.transcript}::text,
-               ${r.photo?.id ?? null}::uuid, ${r.audio?.id ?? null}::uuid, ${r.kind}::text, ${r.transcriptionStatus}::text, false
+               ${r.photo?.id ?? null}::uuid, ${r.audio?.id ?? null}::uuid, ${r.kind}::text, ${r.transcriptionStatus}::text, false, ${r.screening.status}::text, ${r.screening.reason}::text
         FROM cap WHERE cap.n < ${LIMITS.maxReports}::int
           AND EXISTS (SELECT 1 FROM fl_incidents WHERE id = ${r.incidentId}::uuid)
         RETURNING id, seq, source_label, created_at
@@ -261,7 +278,7 @@ export async function insertReport(r: NewReport): Promise<WitnessReport> {
       SELECT id, seq, source_label, created_at FROM rep`;
     const row = rows[0];
     if (!row) throw new ApiError(409, `This incident already has the maximum of ${LIMITS.maxReports} reports.`);
-    const report: WitnessReport = { id: r.id, sourceLabel: row.source_label, name: r.name, location: r.location, text: r.text, kind: r.kind, createdAt: iso(row.created_at), transcriptionStatus: r.transcriptionStatus };
+    const report: WitnessReport = { id: r.id, sourceLabel: row.source_label, name: r.name, location: r.location, text: r.text, kind: r.kind, createdAt: iso(row.created_at), transcriptionStatus: r.transcriptionStatus, screening: r.screening };
     if (r.transcript) report.transcript = r.transcript;
     if (r.photo) report.photoId = r.photo.id;
     if (r.audio) report.audioId = r.audio.id;
@@ -366,9 +383,10 @@ export async function loadBriefContext(incidentId: string): Promise<BriefContext
   const [incident, reports, notes, photos] = await sql.transaction(
     [
       sql`SELECT * FROM fl_incidents WHERE id = ${incidentId}::uuid`,
-      sql`SELECT * FROM fl_reports WHERE incident_id = ${incidentId}::uuid ORDER BY seq LIMIT ${LIMITS.maxReports}::int`,
+      sql`SELECT * FROM fl_reports WHERE incident_id = ${incidentId}::uuid AND screening_status IS DISTINCT FROM 'flagged' ORDER BY seq LIMIT ${LIMITS.maxReports}::int`,
       sql`SELECT id, text, created_at FROM fl_notes WHERE incident_id = ${incidentId}::uuid ORDER BY created_at, id LIMIT ${LIMITS.maxNotes}::int`,
-      sql`SELECT r.id AS report_id, m.file_name FROM fl_reports r JOIN fl_media m ON m.id = r.photo_media_id WHERE r.incident_id = ${incidentId}::uuid ORDER BY r.seq DESC LIMIT ${LIMITS.briefPhotoCount}::int`,
+      sql`SELECT r.id AS report_id, m.file_name FROM fl_reports r JOIN fl_media m ON m.id = r.photo_media_id
+          WHERE r.incident_id = ${incidentId}::uuid AND r.screening_status IS DISTINCT FROM 'flagged' ORDER BY r.seq DESC LIMIT ${LIMITS.briefPhotoCount}::int`,
     ],
     { readOnly: true },
   );
@@ -414,4 +432,18 @@ export async function findMedia(incidentId: string, mediaId: string): Promise<{ 
 export async function deleteMediaRows(incidentId: string, ids: string[]): Promise<void> {
   if (ids.length === 0) return;
   await getDatabase()`DELETE FROM fl_media WHERE incident_id = ${incidentId}::uuid AND id = ANY(${ids}::uuid[])`;
+}
+
+// ---------------------------------------------------------------- provider result cache
+
+/** A cached provider result (small JSON) for an exact-input key, or null. One indexed read. */
+export async function readProviderCache<T>(key: string): Promise<T | null> {
+  const rows = await getDatabase()`SELECT value FROM fl_provider_cache WHERE key = ${key}`;
+  return rows[0] ? (rows[0].value as T) : null;
+}
+
+export async function writeProviderCache(key: string, kind: "transcript" | "screening", value: unknown): Promise<void> {
+  await getDatabase()`
+    INSERT INTO fl_provider_cache (key, kind, value) VALUES (${key}, ${kind}, ${JSON.stringify(value)}::jsonb)
+    ON CONFLICT (key) DO NOTHING`;
 }

@@ -8,6 +8,7 @@ import { GoogleGenAI } from "@google/genai";
 import { ELEVENLABS, LIMITS, dataDir, geminiModel, narrationVoiceId } from "./config";
 import { ApiError } from "./http";
 import { BRIEF_JSON_SCHEMA, BRIEF_SYSTEM_INSTRUCTION } from "./brief-logic";
+import { SCREENING_JSON_SCHEMA, SCREENING_SYSTEM_INSTRUCTION } from "./screening-logic";
 
 /** Thrown when a provider is not configured; callers release their budget reservation because nothing was sent. */
 export class ProviderUnavailable extends Error {}
@@ -28,11 +29,22 @@ export interface GeminiBriefResult {
 
 export type BriefInput = Array<{ type: "text"; text: string } | { type: "image"; data: string; mime_type: "image/jpeg" }>;
 
+interface GeminiJsonRequest {
+  input: BriefInput;
+  systemInstruction: string;
+  schema: Record<string, unknown>;
+  maxOutputTokens: number;
+  timeoutMs: number;
+  label: string;
+  incomplete: string;
+  failed: string;
+}
+
 /**
  * One bounded Gemini Interactions request: stateless (store:false), JSON-schema output, no retries, no continuation.
  * Provider failures are collapsed into a short ApiError; raw provider messages are never surfaced or logged.
  */
-export async function generateBriefJson(input: BriefInput): Promise<GeminiBriefResult> {
+async function geminiJson(req: GeminiJsonRequest): Promise<GeminiBriefResult> {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) throw new ProviderUnavailable("gemini key missing");
   try {
@@ -40,27 +52,52 @@ export async function generateBriefJson(input: BriefInput): Promise<GeminiBriefR
     const interaction = await client.interactions.create(
       {
         model: geminiModel(),
-        input: [{ type: "user_input", content: input }],
-        system_instruction: BRIEF_SYSTEM_INSTRUCTION,
+        input: [{ type: "user_input", content: req.input }],
+        system_instruction: req.systemInstruction,
         store: false,
         automatic_continuation: false,
-        response_format: { type: "text", mime_type: "application/json", schema: BRIEF_JSON_SCHEMA },
-        generation_config: { max_output_tokens: 3000, thinking_level: "low" },
+        response_format: { type: "text", mime_type: "application/json", schema: req.schema },
+        generation_config: { max_output_tokens: req.maxOutputTokens, thinking_level: "low" },
       },
-      { retries: { strategy: "none" }, timeout_ms: 60_000 },
+      { retries: { strategy: "none" }, timeout_ms: req.timeoutMs },
     );
     const text = interaction.output_text?.trim();
-    if (interaction.status !== "completed" || !text) {
-      throw new ApiError(502, "The AI brief did not complete. Your last brief is unchanged; try again in a moment.");
-    }
+    if (interaction.status !== "completed" || !text) throw new ApiError(502, req.incomplete);
     const usage = interaction.usage as { total_input_tokens?: number; total_output_tokens?: number } | undefined;
     return { text, inputTokens: usage?.total_input_tokens ?? null, outputTokens: usage?.total_output_tokens ?? null };
   } catch (error) {
     if (error instanceof ApiError) throw error;
     const status = (error as { status?: unknown; statusCode?: unknown } | null)?.status ?? (error as { statusCode?: unknown } | null)?.statusCode;
-    console.error(`[firstlink] gemini request failed status=${typeof status === "number" ? status : "-"}`);
-    throw new ApiError(502, "The AI brief service did not respond. Your last brief is unchanged; try again in a moment.");
+    console.error(`[firstlink] gemini ${req.label} request failed status=${typeof status === "number" ? status : "-"}`);
+    throw new ApiError(502, req.failed);
   }
+}
+
+export function generateBriefJson(input: BriefInput): Promise<GeminiBriefResult> {
+  return geminiJson({
+    input,
+    systemInstruction: BRIEF_SYSTEM_INSTRUCTION,
+    schema: BRIEF_JSON_SCHEMA,
+    maxOutputTokens: 3000,
+    timeoutMs: 60_000,
+    label: "brief",
+    incomplete: "The AI brief did not complete. Your last brief is unchanged; try again in a moment.",
+    failed: "The AI brief service did not respond. Your last brief is unchanged; try again in a moment.",
+  });
+}
+
+/** Screen one report. Callers treat any ApiError as "unscreened" rather than failing the submission. */
+export function generateScreeningJson(input: BriefInput): Promise<GeminiBriefResult> {
+  return geminiJson({
+    input,
+    systemInstruction: SCREENING_SYSTEM_INSTRUCTION,
+    schema: SCREENING_JSON_SCHEMA,
+    maxOutputTokens: 600,
+    timeoutMs: 30_000,
+    label: "screening",
+    incomplete: "Screening did not complete.",
+    failed: "Screening is unavailable.",
+  });
 }
 
 function eleven(): ElevenLabsClient {
