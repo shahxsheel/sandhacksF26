@@ -11,5 +11,8 @@ coverage/
 .DS_Store
 *.pem
 *.key
+.deployment/
+.runtime/
+data/
 
 .neon

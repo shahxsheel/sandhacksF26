@@ -8,3 +8,6 @@ test-results
 active
 .agents
 *.tsbuildinfo
+.deployment
+.runtime
+data
