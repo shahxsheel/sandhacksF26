@@ -307,6 +307,30 @@ res = await call(sessionRoute.GET, "GET", `/api/session?incidentId=${stateB.inci
 assert.equal((await pg.query("select count(*)::int n from fl_incidents")).rows[0].n, 3);
 res = await call(resetRoute.POST, "POST", "/api/session/reset", { jar: anon, json: {} }); assert.equal(res.status, 404);
 ok("reset restores seed, removes media, keeps links, does not touch other workspaces");
+const keptLimits = await pg.query("select count(*)::int n from fl_rate_limits where session_id = (select session_id from fl_incidents where id=$1)", [incidentId]);
+assert.ok(keptLimits.rows[0].n > 0);
+res = await call(briefRoute.POST, "POST", "/api/brief", { jar: A, json: { incidentId } });
+assert.equal(res.status, 429);
+ok("reset does not clear per-workspace paid-call rate limits");
+
+// ---- per-network workspace creation cap (only for requests that came through the proxy)
+const viaProxy = { "x-forwarded-for": "198.51.100.7" };
+const sessionsBefore: string[] = (await pg.query("select array_agg(id) ids from fl_sessions")).rows[0].ids;
+for (let i = 0; i < 40; i++) {
+  res = await call(sessionRoute.GET, "GET", "/api/session", { jar: new Jar(), headers: viaProxy });
+  assert.equal(res.status, 200);
+}
+res = await call(sessionRoute.GET, "GET", "/api/session", { jar: new Jar(), headers: viaProxy });
+assert.equal(res.status, 429);
+assert.equal(res.headers.get("set-cookie"), null);
+res = await call(sessionRoute.GET, "GET", "/api/session", { jar: new Jar(), headers: { "x-forwarded-for": "198.51.100.8" } });
+assert.equal(res.status, 200);
+res = await call(sessionRoute.GET, "GET", "/api/session", { jar: new Jar(), headers: { "x-forwarded-for": "::1" } });
+assert.equal(res.status, 200); // local/unproxied traffic (Next.js fills in the socket address) is not limited
+res = await call(sessionRoute.GET, "GET", "/api/session", { jar: A, headers: viaProxy });
+assert.equal(res.status, 200); assert.equal((await j(res)).state.incident.id, incidentId);
+await pg.query("delete from fl_sessions where not (id = any($1::uuid[]))", [sessionsBefore]);
+ok("one network cannot use up the global workspace allowance; existing owners unaffected");
 
 // ---- retention
 await pg.query("update fl_sessions set expires_at = now() - interval '1 hour' where id = (select session_id from fl_incidents where id=$1)", [stateB.incident.id]);

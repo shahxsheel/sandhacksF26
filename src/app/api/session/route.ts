@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { authorize, resolveOwner, sessionCookie } from "@/lib/server/auth";
-import { ApiError, accessSchema, json, route, uuidSchema } from "@/lib/server/http";
+import { LIMITS } from "@/lib/server/config";
+import { ApiError, accessSchema, json, route, takeIpSlot, uuidSchema } from "@/lib/server/http";
 import { createWorkspace, loadState } from "@/lib/server/store";
 import { stateFor } from "@/lib/server/services";
 
@@ -30,6 +31,10 @@ export const GET = route(async (request: Request) => {
   const owner = await resolveOwner(request);
   if (owner) return json({ state: await loadState(owner.incidentId, "coordinator", owner.secret) });
 
+  // One client must not be able to use up the global daily workspace allowance for everyone else.
+  if (!takeIpSlot(request, "workspace", LIMITS.maxWorkspacesPerIpPerHour, 3_600_000)) {
+    throw new ApiError(429, "Too many new demo workspaces from this network. Please try again later.");
+  }
   const { secret, state } = await createWorkspace();
   return json({ state }, { headers: { "Set-Cookie": sessionCookie(secret, request) } });
 });

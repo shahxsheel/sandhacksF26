@@ -30,7 +30,8 @@ export default function DashboardPage() {
       const data = await fetchSession();
       setState(data);
     } catch (err: unknown) {
-      setState(null);
+      // A failed manual refresh keeps the workspace already on screen; only the first load shows the error panel.
+      if (!quiet) setState(null);
       if (err instanceof ApiError) {
         setErrorMsg(err.message);
       } else {
@@ -94,7 +95,7 @@ export default function DashboardPage() {
     return (
       <div style={{ minHeight: "100vh", background: "var(--cream)", display: "flex", flexDirection: "column" }}>
         <Navbar onRefresh={() => loadSession(true)} isRefreshing={isRefreshing} />
-        <main style={{ flex: 1, padding: "48px 24px" }}>
+        <main style={{ flex: 1, padding: "48px 16px" }}>
           <SessionLoadPanel
             title="Workspace unavailable"
             message={errorMsg || "The coordinator session could not be loaded."}
@@ -116,7 +117,7 @@ export default function DashboardPage() {
         isRefreshing={isRefreshing}
       />
 
-      <main style={{ flex: 1, padding: "28px 24px 64px" }}>
+      <main style={{ flex: 1, padding: "24px 0 64px" }}>
         <div className="container-max">
           {errorMsg && (
             <div
@@ -140,56 +141,58 @@ export default function DashboardPage() {
 
           <IncidentHeader state={state} />
 
-          <div style={{ marginBottom: "28px" }}>
-            <SchematicMap
-              reports={state.reports}
-              stagingArea={state.incident.stagingArea}
-              onSelectReport={handleSelectReport}
-              selectedReportId={selectedReportId}
-            />
-          </div>
+          <div className="dashboard-columns">
+            <div className="dashboard-col">
+              <div className="dash-brief">
+                <BriefCard
+                  brief={state.brief}
+                  incidentId={state.incident.id}
+                  reports={state.reports}
+                  onStateUpdated={handleStateUpdated}
+                  onSelectReport={handleSelectReport}
+                />
+              </div>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "minmax(0, 1.6fr) minmax(0, 1.1fr)",
-              gap: "28px",
-              alignItems: "start",
-            }}
-            className="dashboard-columns"
-          >
-            <div style={{ minWidth: 0 }}>
-              <BriefCard
-                brief={state.brief}
-                incidentId={state.incident.id}
-                reports={state.reports}
-                onStateUpdated={handleStateUpdated}
-                onSelectReport={handleSelectReport}
-              />
+              <div className="dash-map">
+                <SchematicMap
+                  reports={state.reports}
+                  stagingArea={state.incident.stagingArea}
+                  onSelectReport={handleSelectReport}
+                  selectedReportId={selectedReportId}
+                />
+              </div>
 
-              <WitnessFeed
-                reports={state.reports}
-                incidentId={state.incident.id}
-                selectedReportId={selectedReportId}
-                onSelectReport={setSelectedReportId}
-              />
+              <div className="dash-feed">
+                <WitnessFeed
+                  reports={state.reports}
+                  incidentId={state.incident.id}
+                  selectedReportId={selectedReportId}
+                  onSelectReport={setSelectedReportId}
+                />
+              </div>
 
-              <CoordinatorNotes
-                notes={state.brief.notes}
-                incidentId={state.incident.id}
-                onStateUpdated={handleStateUpdated}
-              />
+              <div className="dash-notes">
+                <CoordinatorNotes
+                  notes={state.brief.notes}
+                  incidentId={state.incident.id}
+                  onStateUpdated={handleStateUpdated}
+                />
+              </div>
             </div>
 
-            <div style={{ minWidth: 0 }}>
-              <VolunteerCards
-                volunteers={state.volunteers}
-                assignments={state.assignments}
-                incidentId={state.incident.id}
-                onStateUpdated={handleStateUpdated}
-              />
+            <div className="dashboard-col">
+              <div className="dash-volunteers">
+                <VolunteerCards
+                  volunteers={state.volunteers}
+                  assignments={state.assignments}
+                  incidentId={state.incident.id}
+                  onStateUpdated={handleStateUpdated}
+                />
+              </div>
 
-              <TimelineFeed events={state.events} />
+              <div className="dash-timeline">
+                <TimelineFeed events={state.events} />
+              </div>
             </div>
           </div>
         </div>
@@ -215,9 +218,37 @@ export default function DashboardPage() {
       </footer>
 
       <style jsx global>{`
+        .dashboard-columns {
+          display: grid;
+          grid-template-columns: minmax(0, 1.6fr) minmax(0, 1.1fr);
+          gap: 28px;
+          align-items: start;
+        }
+        .dashboard-col {
+          min-width: 0;
+        }
+        .dash-map {
+          margin-bottom: 28px;
+        }
+        /* Single column: brief first, then who can help, then the scene and evidence. */
         @media (max-width: 960px) {
           .dashboard-columns {
-            grid-template-columns: 1fr !important;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+          }
+          .dashboard-col {
+            display: contents;
+          }
+          .dash-brief { order: 1; }
+          .dash-volunteers { order: 2; }
+          .dash-map { order: 3; }
+          .dash-feed { order: 4; }
+          .dash-notes { order: 5; }
+          .dash-timeline { order: 6; }
+          .dashboard-col > div {
+            min-width: 0;
+            max-width: 100%;
           }
         }
       `}</style>

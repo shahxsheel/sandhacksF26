@@ -46,7 +46,7 @@ export function TimelineFeed({ events }: TimelineFeedProps) {
   };
 
   return (
-    <div className="card-light" style={{ padding: "24px 28px" }}>
+    <div className="card-light fl-card-pad">
       <div
         style={{
           display: "flex",

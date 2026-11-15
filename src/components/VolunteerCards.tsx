@@ -42,7 +42,7 @@ export function VolunteerCards({
     try {
       const next = await assignVolunteer(incidentId, selectedVolunteerId, taskText.trim());
       const vol = next.volunteers.find((v) => v.id === selectedVolunteerId);
-      setSuccessMsg(`Task dispatched to ${vol?.name || "volunteer"} for acceptance.`);
+      setSuccessMsg(`${vol?.name || "Volunteer"} approved for the staging point. Simulation only: no message was sent; they respond from the volunteer link.`);
       setSelectedVolunteerId(null);
       onStateUpdated(next);
     } catch (err: unknown) {
@@ -61,7 +61,7 @@ export function VolunteerCards({
   };
 
   return (
-    <div className="card-light" style={{ padding: "24px 28px", marginBottom: "28px" }}>
+    <div className="card-light fl-card-pad" style={{ marginBottom: "28px" }}>
       {/* Header */}
       <div
         style={{
@@ -83,8 +83,8 @@ export function VolunteerCards({
             Staging support only. Volunteers are tasked exclusively to the designated North Plaza staging area.
           </p>
         </div>
-        <span className="badge badge-sim">
-          Bounded Dispatch · Staging Only
+        <span className="badge badge-green">
+          Staging point only
         </span>
       </div>
 
@@ -128,7 +128,7 @@ export function VolunteerCards({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(min(260px, 100%), 1fr))",
           gap: "14px",
           marginBottom: "24px",
         }}
@@ -238,6 +238,8 @@ export function VolunteerCards({
                   type="button"
                   disabled={!vol.available || hasActiveAssignment}
                   onClick={() => setSelectedVolunteerId(isSelected ? null : vol.id)}
+                  aria-expanded={isSelected}
+                  aria-label={isSelected ? `Cancel task for ${vol.name}` : `Assign a staging task to ${vol.name}`}
                   className={`btn btn-sm ${isSelected ? "btn-dark" : "btn-outline-dark"}`}
                   style={{ padding: "4px 12px", fontSize: "0.75rem" }}
                 >
@@ -264,20 +266,22 @@ export function VolunteerCards({
           <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
             <Send size={15} color="var(--spruce-main)" />
             <h4 style={{ fontSize: "0.9375rem", fontWeight: 600, color: "var(--spruce-main)" }}>
-              Dispatch Staging Task to {getVolunteerName(selectedVolunteerId)}
+              Approve {getVolunteerName(selectedVolunteerId)} for a staging task
             </h4>
           </div>
 
           <div style={{ marginBottom: "12px" }}>
-            <label style={{ display: "block", fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-muted)", marginBottom: "4px" }}>
-              Select Designated Staging Task
+            <label htmlFor="volunteer-task-preset" style={{ display: "block", fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-muted)", marginBottom: "4px" }}>
+              Staging task
             </label>
             <select
-              value={taskText}
+              id="volunteer-task-preset"
+              value={PRESET_TASKS.includes(taskText) ? taskText : ""}
               onChange={(e) => setTaskText(e.target.value)}
               className="select"
               style={{ marginBottom: "8px" }}
             >
+              {!PRESET_TASKS.includes(taskText) && <option value="" disabled>Custom instruction below</option>}
               {PRESET_TASKS.map((preset, pIdx) => (
                 <option key={pIdx} value={preset}>
                   {preset}
@@ -287,11 +291,13 @@ export function VolunteerCards({
           </div>
 
           <div style={{ marginBottom: "14px" }}>
-            <label style={{ display: "block", fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-muted)", marginBottom: "4px" }}>
-              Or Customize Staging Instruction (Must specify staging area)
+            <label htmlFor="volunteer-task-text" style={{ display: "block", fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-muted)", marginBottom: "4px" }}>
+              Or edit the instruction (staging point support only)
             </label>
             <input
+              id="volunteer-task-text"
               type="text"
+              maxLength={200}
               value={taskText}
               onChange={(e) => setTaskText(e.target.value)}
               className="input"
@@ -313,7 +319,7 @@ export function VolunteerCards({
               disabled={isSubmitting || !taskText.trim()}
               className="btn btn-sm btn-primary"
             >
-              {isSubmitting ? "Dispatching..." : "Approve & Send to Volunteer"}
+              {isSubmitting ? "Approving..." : "Approve for staging point"}
             </button>
           </div>
         </form>
@@ -323,7 +329,7 @@ export function VolunteerCards({
       {assignments.length > 0 && (
         <div>
           <h4 style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--spruce-muted)", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: "12px" }}>
-            Active Task Assignments ({assignments.length})
+            Staging assignments ({assignments.length})
           </h4>
 
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -369,7 +375,7 @@ export function VolunteerCards({
                 </div>
 
                 <div style={{ fontSize: "0.75rem", color: "var(--text-dim)" }}>
-                  Dispatched {new Date(asg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  Approved {new Date(asg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                 </div>
               </div>
             ))}

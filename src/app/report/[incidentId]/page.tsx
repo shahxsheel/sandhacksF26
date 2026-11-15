@@ -30,6 +30,7 @@ export default function WitnessReportPage({ params }: ReportPageProps) {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioFileName, setAudioFileName] = useState<string>("recording.webm");
+  const photoInputRef = React.useRef<HTMLInputElement | null>(null);
 
   // Submission State
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -68,6 +69,7 @@ export default function WitnessReportPage({ params }: ReportPageProps) {
 
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
 
     if (file.size > 4 * 1024 * 1024) {
@@ -75,6 +77,7 @@ export default function WitnessReportPage({ params }: ReportPageProps) {
       return;
     }
 
+    if (photoPreview) URL.revokeObjectURL(photoPreview);
     setPhotoFile(file);
     const previewUrl = URL.createObjectURL(file);
     setPhotoPreview(previewUrl);
@@ -161,9 +164,9 @@ export default function WitnessReportPage({ params }: ReportPageProps) {
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--cream)", display: "flex", flexDirection: "column" }}>
-      <Navbar />
+      <Navbar ownerIncidentId={access ? undefined : incidentId} />
 
-      <main style={{ flex: 1, padding: "32px 24px 64px" }}>
+      <main className="witness-page" style={{ flex: 1, padding: "32px 16px 64px" }}>
         <div style={{ maxWidth: "640px", margin: "0 auto" }}>
           {accessLoading ? (
             <div style={{ textAlign: "center", padding: "64px 16px" }}>
@@ -203,9 +206,8 @@ export default function WitnessReportPage({ params }: ReportPageProps) {
           {/* Submission Success State */}
           {submittedReport ? (
             <div
-              className="card-light"
+              className="card-light fl-card-pad"
               style={{
-                padding: "36px 32px",
                 background: "#ffffff",
                 textAlign: "center",
               }}
@@ -235,7 +237,7 @@ export default function WitnessReportPage({ params }: ReportPageProps) {
               </h2>
 
               <p style={{ fontSize: "0.9375rem", color: "var(--text-muted)", lineHeight: 1.6, marginBottom: "28px", maxWidth: "480px", margin: "0 auto 28px" }}>
-                Thank you for contributing safe eyewitness context. Your report has been delivered to the coordinator incident workspace.
+                Thank you. Your report is now in this staged incident&apos;s coordinator workspace. No emergency service was contacted.
               </p>
 
               <div style={{ display: "flex", justifyContent: "center", gap: "12px", flexWrap: "wrap" }}>
@@ -247,25 +249,26 @@ export default function WitnessReportPage({ params }: ReportPageProps) {
                   Submit Another Observation
                 </button>
 
-                <Link href="/dashboard" className="btn btn-primary">
-                  <span>View Coordinator Workspace</span>
-                  <ArrowRight size={14} />
-                </Link>
+                {!access && (
+                  <Link href="/dashboard" className="btn btn-primary">
+                    <span>View Coordinator Workspace</span>
+                    <ArrowRight size={14} />
+                  </Link>
+                )}
               </div>
             </div>
           ) : (
             /* Main Witness Reporting Form */
             <div
-              className="card-light"
+              className="card-light fl-card-pad"
               style={{
-                padding: "32px 32px",
                 background: "#ffffff",
               }}
             >
               {/* Header */}
               <div style={{ marginBottom: "24px", borderBottom: "1px solid var(--cream-hairline)", paddingBottom: "16px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
-                  <span className="badge badge-sim">
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px", flexWrap: "wrap" }}>
+                  <span className="badge badge-dark">
                     STAGED INCIDENT REPORT
                   </span>
                   <span style={{ fontSize: "0.75rem", color: "var(--text-dim)" }}>
@@ -301,12 +304,15 @@ export default function WitnessReportPage({ params }: ReportPageProps) {
               <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
                 {/* Reporter Name */}
                 <div>
-                  <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.875rem", fontWeight: 600, color: "var(--spruce-main)", marginBottom: "6px" }}>
+                  <label htmlFor="witness-name" style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.875rem", fontWeight: 600, color: "var(--spruce-main)", marginBottom: "6px" }}>
                     <User size={14} /> Your Name (Optional)
                   </label>
                   <input
+                    id="witness-name"
                     type="text"
                     name="name"
+                    maxLength={80}
+                    autoComplete="name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="e.g. Alex Morgan (or leave blank for anonymous)"
@@ -316,12 +322,14 @@ export default function WitnessReportPage({ params }: ReportPageProps) {
 
                 {/* Observed Location */}
                 <div>
-                  <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.875rem", fontWeight: 600, color: "var(--spruce-main)", marginBottom: "6px" }}>
+                  <label htmlFor="witness-location" style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.875rem", fontWeight: 600, color: "var(--spruce-main)", marginBottom: "6px" }}>
                     <MapPin size={14} /> Your Current Safe Location *
                   </label>
                   <input
+                    id="witness-location"
                     type="text"
                     name="location"
+                    maxLength={120}
                     required
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
@@ -335,11 +343,13 @@ export default function WitnessReportPage({ params }: ReportPageProps) {
 
                 {/* Observation Text */}
                 <div>
-                  <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.875rem", fontWeight: 600, color: "var(--spruce-main)", marginBottom: "6px" }}>
+                  <label htmlFor="witness-text" style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.875rem", fontWeight: 600, color: "var(--spruce-main)", marginBottom: "6px" }}>
                     <FileText size={14} /> What do you observe right now? *
                   </label>
                   <textarea
+                    id="witness-text"
                     name="text"
+                    maxLength={1200}
                     value={text}
                     onChange={(e) => setText(e.target.value)}
                     placeholder="Describe smoke, flames, people exiting, or conditions you personally see. If sharing something heard second-hand, please note that."
@@ -350,16 +360,16 @@ export default function WitnessReportPage({ params }: ReportPageProps) {
 
                 {/* Optional Photo Upload */}
                 <div>
-                  <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.875rem", fontWeight: 600, color: "var(--spruce-main)", marginBottom: "6px" }}>
+                  <span id="witness-photo-label" style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.875rem", fontWeight: 600, color: "var(--spruce-main)", marginBottom: "6px" }}>
                     <Camera size={14} /> Photo Evidence (Optional)
-                  </label>
+                  </span>
 
                   {photoPreview ? (
                     <div style={{ position: "relative", display: "inline-block", marginTop: "4px" }}>
                       <img
                         src={photoPreview}
                         alt="Photo preview"
-                        style={{ maxWidth: "240px", maxHeight: "160px", objectFit: "cover", borderRadius: "2px", border: "1px solid var(--cream-hairline)" }}
+                        style={{ maxWidth: "100%", width: "240px", maxHeight: "160px", objectFit: "cover", borderRadius: "2px", border: "1px solid var(--cream-hairline)" }}
                       />
                       <button
                         type="button"
@@ -373,21 +383,27 @@ export default function WitnessReportPage({ params }: ReportPageProps) {
                     </div>
                   ) : (
                     <div>
-                      <label
+                      <input
+                        ref={photoInputRef}
+                        id="witness-photo"
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        onChange={handlePhotoSelect}
+                        className="visually-hidden"
+                        tabIndex={-1}
+                        aria-hidden="true"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => photoInputRef.current?.click()}
                         className="btn btn-sm btn-outline-dark"
-                        style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                        aria-describedby="witness-photo-label"
                       >
                         <Upload size={14} />
-                        <span>Upload Photo (JPEG, PNG, WebP)</span>
-                        <input
-                          type="file"
-                          accept="image/jpeg,image/png,image/webp"
-                          onChange={handlePhotoSelect}
-                          style={{ display: "none" }}
-                        />
-                      </label>
+                        <span>Upload Photo</span>
+                      </button>
                       <span style={{ fontSize: "0.75rem", color: "var(--text-dim)", display: "block", marginTop: "4px" }}>
-                        Max 4 MB. Real photos only from safe perimeter.
+                        JPEG, PNG or WebP, max 4 MB. Photos only from a safe position.
                       </span>
                     </div>
                   )}
@@ -422,11 +438,13 @@ export default function WitnessReportPage({ params }: ReportPageProps) {
                 </div>
 
                 {/* Submit Action */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "8px" }}>
-                  <Link href="/dashboard" style={{ fontSize: "0.875rem", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "4px" }}>
-                    <ChevronLeft size={14} />
-                    <span>Back to demo</span>
-                  </Link>
+                <div style={{ display: "flex", justifyContent: access ? "flex-end" : "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginTop: "8px" }}>
+                  {!access && (
+                    <Link href="/dashboard" style={{ fontSize: "0.875rem", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "4px" }}>
+                      <ChevronLeft size={14} />
+                      <span>Back to coordinator view</span>
+                    </Link>
+                  )}
 
                   <button
                     type="submit"

@@ -42,12 +42,14 @@ export function CoordinatorNotes({
   };
 
   return (
-    <div className="card-light" style={{ padding: "24px 28px", marginBottom: "28px" }}>
+    <div className="card-light fl-card-pad" style={{ marginBottom: "28px" }}>
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
+          flexWrap: "wrap",
+          gap: "8px 12px",
           marginBottom: "16px",
           paddingBottom: "12px",
           borderBottom: "1px solid var(--cream-hairline)",
@@ -58,7 +60,7 @@ export function CoordinatorNotes({
             Coordinator Corrections & Operational Notes
           </h3>
           <p style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginTop: "2px" }}>
-            Add instructions, verify facts, or record staging decisions for arriving units.
+            Corrections are kept with the brief and sent with the next Gemini update.
           </p>
         </div>
         <span className="badge badge-dark">
@@ -122,9 +124,11 @@ export function CoordinatorNotes({
           type="text"
           value={noteText}
           onChange={(e) => setNoteText(e.target.value)}
-          placeholder="e.g. Confirmed north hydrant is clear. Arriving crew staged at North Plaza."
+          placeholder="e.g. Treat occupancy as unknown until confirmed at North Plaza."
+          aria-label="Coordinator note or correction"
+          maxLength={500}
           className="input"
-          style={{ flex: 1, minWidth: "240px" }}
+          style={{ flex: "1 1 220px", minWidth: 0 }}
         />
         <button
           type="submit"

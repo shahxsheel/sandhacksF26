@@ -1,8 +1,70 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import type { WitnessReport } from "../lib/types";
-import { MapPin, Flag, Eye, Flame, AlertCircle } from "lucide-react";
+import { Flag, Flame } from "lucide-react";
+
+/** Positions of the two staged sample witnesses in this scenario's schematic. */
+const STAGED_POSITIONS = [
+  { sourceLabel: "W-01", cx: 160, cy: 255, labelDy: 25 },
+  { sourceLabel: "W-02", cx: 460, cy: 115, labelDy: -17 },
+];
+
+function shorten(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
+}
+
+function MapPin({
+  report,
+  cx,
+  cy,
+  labelY,
+  label,
+  selected,
+  onSelect,
+}: {
+  report: WitnessReport;
+  cx: number;
+  cy: number;
+  labelY: number;
+  label: string;
+  selected: boolean;
+  onSelect?: (reportId: string) => void;
+}) {
+  const select = () => onSelect?.(report.id);
+  return (
+    <g
+      className="map-pin"
+      role="button"
+      tabIndex={0}
+      aria-label={`Show report ${report.sourceLabel} from ${report.location}`}
+      aria-pressed={selected}
+      style={{ cursor: "pointer", outline: "none" }}
+      onClick={select}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          select();
+        }
+      }}
+    >
+      <circle
+        cx={cx}
+        cy={cy}
+        r={selected ? 18 : 13}
+        fill="#063238"
+        stroke={selected ? "var(--accent-lime)" : "var(--spruce-light)"}
+        strokeWidth="2"
+      />
+      <text x={cx} y={cy + 4} textAnchor="middle" fill="var(--cream)" fontSize="10" fontWeight="600">
+        {report.sourceLabel}
+      </text>
+      <text x={cx} y={labelY} textAnchor="middle" fill="var(--spruce-light)" fontSize="10">
+        {label}
+      </text>
+    </g>
+  );
+}
 
 interface SchematicMapProps {
   reports: WitnessReport[];
@@ -17,7 +79,12 @@ export function SchematicMap({
   onSelectReport,
   selectedReportId,
 }: SchematicMapProps) {
-  const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
+  const stagedPins = STAGED_POSITIONS.flatMap((pos) => {
+    const report = reports.find((r) => r.isSample && r.sourceLabel === pos.sourceLabel);
+    return report ? [{ report, ...pos }] : [];
+  });
+  const placedIds = new Set(stagedPins.map((p) => p.report.id));
+  const otherReports = reports.filter((r) => !placedIds.has(r.id)).slice(0, 6);
 
   return (
     <div className="card-light" style={{ overflow: "hidden" }}>
@@ -51,22 +118,22 @@ export function SchematicMap({
         </div>
       </div>
 
-      {/* SVG Canvas Container */}
+      {/* SVG Canvas Container: scrolls sideways on phones so labels stay legible */}
       <div
+        className="custom-scroll-dark"
         style={{
           position: "relative",
           background: "#072327",
-          minHeight: "360px",
-          padding: "16px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
+          padding: "12px",
+          overflowX: "auto",
           userSelect: "none",
         }}
       >
         <svg
           viewBox="0 0 800 480"
-          style={{ width: "100%", height: "auto", maxHeight: "420px" }}
+          role="group"
+          aria-label="Demo schematic of the staged scene with witness report pins"
+          style={{ display: "block", width: "100%", minWidth: "560px", height: "auto" }}
         >
           <defs>
             {/* Grid Pattern */}
@@ -185,84 +252,38 @@ export function SchematicMap({
             </g>
           </g>
 
-          {/* Witness Location 1: Alex Morgan (West Entrance) */}
-          <g
-            style={{ cursor: "pointer" }}
-            onClick={() => {
-              const r = reports.find((w) => w.sourceLabel === "W-01" || w.name.includes("Alex"));
-              if (r && onSelectReport) onSelectReport(r.id);
-            }}
-          >
-            <circle
-              cx="160"
-              cy="255"
-              r={selectedReportId && reports.find((r) => r.id === selectedReportId)?.sourceLabel === "W-01" ? 18 : 13}
-              fill="#063238"
-              stroke={selectedReportId && reports.find((r) => r.id === selectedReportId)?.sourceLabel === "W-01" ? "var(--accent-lime)" : "var(--spruce-light)"}
-              strokeWidth="2"
+          {/* Staged sample witnesses have known positions in this scenario. */}
+          {stagedPins.map(({ report, cx, cy, labelDy }) => (
+            <MapPin
+              key={report.id}
+              report={report}
+              cx={cx}
+              cy={cy}
+              labelY={cy + labelDy}
+              label={`${report.name.split(" ")[0]} · ${shorten(report.location, 22)}`}
+              selected={selectedReportId === report.id}
+              onSelect={onSelectReport}
             />
-            <text x="160" y="259" textAnchor="middle" fill="var(--cream)" fontSize="10" fontWeight="600">
-              W-01
-            </text>
-            <text x="160" y="280" textAnchor="middle" fill="var(--spruce-light)" fontSize="10">
-              Alex M. (West Lawn)
-            </text>
-          </g>
+          ))}
 
-          {/* Witness Location 2: Jordan Lee (North Plaza Edge) */}
-          <g
-            style={{ cursor: "pointer" }}
-            onClick={() => {
-              const r = reports.find((w) => w.sourceLabel === "W-02" || w.name.includes("Jordan"));
-              if (r && onSelectReport) onSelectReport(r.id);
-            }}
-          >
-            <circle
-              cx="460"
-              cy="115"
-              r={selectedReportId && reports.find((r) => r.id === selectedReportId)?.sourceLabel === "W-02" ? 18 : 13}
-              fill="#063238"
-              stroke={selectedReportId && reports.find((r) => r.id === selectedReportId)?.sourceLabel === "W-02" ? "var(--accent-lime)" : "var(--spruce-light)"}
-              strokeWidth="2"
+          {/* Other reports are not geolocated: list them in order with the location the witness described. */}
+          {otherReports.length > 0 && (
+            <text x="110" y="352" fill="var(--spruce-light)" fontSize="10" letterSpacing="0.06em">
+              OTHER REPORTS · DESCRIBED LOCATION, NOT GEOLOCATED
+            </text>
+          )}
+          {otherReports.map((report, idx) => (
+            <MapPin
+              key={report.id}
+              report={report}
+              cx={130 + idx * 100}
+              cy={372}
+              labelY={398}
+              label={shorten(report.location, 16)}
+              selected={selectedReportId === report.id}
+              onSelect={onSelectReport}
             />
-            <text x="460" y="119" textAnchor="middle" fill="var(--cream)" fontSize="10" fontWeight="600">
-              W-02
-            </text>
-            <text x="460" y="98" textAnchor="middle" fill="var(--spruce-light)" fontSize="10">
-              Jordan L. (North Plaza)
-            </text>
-          </g>
-
-          {/* Dynamic Pin for extra reports */}
-          {reports
-            .filter((r) => r.sourceLabel !== "W-01" && r.sourceLabel !== "W-02")
-            .map((rep, idx) => {
-              const cx = 200 + (idx * 90) % 360;
-              const cy = 370 - (idx * 50) % 180;
-              const isSel = selectedReportId === rep.id;
-              return (
-                <g
-                  key={rep.id}
-                  style={{ cursor: "pointer" }}
-                  onClick={() => onSelectReport && onSelectReport(rep.id)}
-                >
-                  <circle
-                    cx={cx}
-                    cy={cy}
-                    r={isSel ? 18 : 13}
-                    fill="#08383e"
-                    stroke={isSel ? "var(--accent-lime)" : "#8ad1d8"}
-                    strokeWidth="2"
-                  />
-                  <text x={cx} y={cy + 4} textAnchor="middle" fill="var(--cream)" fontSize="9" fontWeight="600">
-                    {rep.sourceLabel || `W-${idx + 3}`}
-                  </text>
-                  <text x={cx} y={cy + 22} textAnchor="middle" fill="var(--spruce-light)" fontSize="9">
-                    {rep.name}
-                  </text>
-                </g>
-              );
-            })}
+          ))}
         </svg>
       </div>
 
@@ -284,7 +305,7 @@ export function SchematicMap({
         <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
           <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: "#437278", display: "inline-block" }} />
-            Witness Pin (Click to view report)
+            Witness report (select to open)
           </span>
           <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <span style={{ width: "10px", height: "10px", borderRadius: "2px", background: "var(--pale-green-border)", border: "1px solid var(--accent-lime)", display: "inline-block" }} />
@@ -299,6 +320,12 @@ export function SchematicMap({
           Coordinators direct volunteers only to the staging area.
         </span>
       </div>
+      <style jsx global>{`
+        .map-pin:focus-visible circle {
+          stroke: var(--accent-lime);
+          stroke-width: 4;
+        }
+      `}</style>
     </div>
   );
 }

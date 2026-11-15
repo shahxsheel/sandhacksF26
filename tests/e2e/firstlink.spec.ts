@@ -282,6 +282,84 @@ test.describe("UI — readable headings without horizontal overflow", () => {
   });
 });
 
+test.describe("UI — review regressions", () => {
+  test("320px owner views hydrate cleanly and keep controls within their panels", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 740 });
+    const owner = await openOwnerSession(page.request);
+    const hydrationErrors: string[] = [];
+    page.on("console", (message) => {
+      if (message.type() === "error" && /hydrat|server rendered HTML/i.test(message.text())) hydrationErrors.push(message.text());
+    });
+    for (const path of ["/dashboard", `/report/${owner.incident.id}`, `/volunteer/${owner.incident.id}`]) {
+      await page.goto(path);
+      await expect(page.locator("main h1")).toBeVisible();
+      if (path.includes("report")) await expect(page.getByRole("button", { name: /upload photo/i })).toBeVisible();
+      const clipped = await page.locator("header button, main button").evaluateAll((buttons) => buttons.filter((button) => {
+        const box = button.getBoundingClientRect();
+        if (!box.width || !box.height) return false;
+        const panel = button.closest(".card-light")?.getBoundingClientRect();
+        return box.left < -1 || box.right > window.innerWidth + 1 || Boolean(panel && box.right > panel.right + 1);
+      }).map((button) => button.textContent));
+      expect(clipped, path).toEqual([]);
+    }
+    expect(hydrationErrors).toEqual([]);
+  });
+
+  test("volunteer portal offers Accept for a re-approval after an earlier decline", async ({ page }) => {
+    const owner = await openOwnerSession(page.request);
+    const volunteer = availableVolunteer(owner);
+    const approve = (task: string) =>
+      page.request.post("/api/assignments", { data: { incidentId: owner.incident.id, volunteerId: volunteer.id, task } });
+    const first = await approve("Check-in desk at the staging point");
+    expect(first.ok(), await first.text()).toBeTruthy();
+    const firstId = ((await first.json()) as { state: DemoState }).state.assignments.find((a) => a.volunteerId === volunteer.id)!.id;
+    const decline = await page.request.post(`/api/assignments/${firstId}`, {
+      data: { action: "decline", incidentId: owner.incident.id, role: "volunteer" },
+    });
+    expect(decline.ok(), await decline.text()).toBeTruthy();
+    const second = await approve("Supply runner at the staging point");
+    expect(second.ok(), await second.text()).toBeTruthy();
+
+    await page.goto(`/volunteer/${owner.incident.id}`);
+    await page.getByRole("combobox", { name: /volunteer to view as/i }).selectOption(volunteer.id);
+    await expect(page.getByText("Supply runner at the staging point")).toBeVisible();
+    await page.getByRole("button", { name: /accept/i }).click();
+    await expect(page.getByText(/assignment accepted/i)).toBeVisible();
+  });
+
+  test("shared witness link hides coordinator navigation, share links and workspace links", async ({ browser, request }) => {
+    const owner = await openOwnerSession(request);
+    const ctx = await browser.newContext({ baseURL: process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000" });
+    try {
+      const page = await ctx.newPage();
+      await page.goto(`/report/${owner.incident.id}?access=${owner.access!.witnessToken}`);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Share links" })).toHaveCount(0);
+      await expect(page.getByRole("navigation", { name: "Demo views" })).toHaveCount(0);
+      await expect(page.getByRole("link", { name: /coordinator/i })).toHaveCount(0);
+      // The photo picker is reachable without a mouse.
+      await expect(page.getByRole("button", { name: /upload photo/i })).toBeVisible();
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  test("dashboard shows the brief before the scene map and has no hidden horizontal overflow", async ({ page }) => {
+    await openOwnerSession(page.request);
+    await page.goto("/dashboard");
+    const brief = page.getByText("SHARED INCIDENT BRIEF");
+    await expect(brief).toBeVisible();
+    const briefTop = (await brief.boundingBox())!.y;
+    const mapTop = (await page.getByText("SCENE SCHEMATIC").boundingBox())!.y;
+    expect(briefTop).toBeLessThan(mapTop);
+    // html hides x-overflow, so check the body's real content width too.
+    expect(await page.evaluate(() => document.body.scrollWidth <= window.innerWidth + 2)).toBeTruthy();
+    await page.getByRole("button", { name: /^show report W-01/i }).focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("button", { name: /collapse report W-01/i })).toBeVisible();
+  });
+});
+
 test.describe("UI — landing navigation contract", () => {
   test("primary Open demo path reaches the coordinator dashboard", async ({ page }) => {
     await page.goto("/");

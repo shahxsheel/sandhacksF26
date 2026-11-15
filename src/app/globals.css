@@ -225,6 +225,7 @@ button, input, select, textarea {
   font-weight: 500;
   letter-spacing: 0.02em;
   line-height: 1.3;
+  white-space: nowrap;
 }
 
 .badge-sim {
@@ -353,4 +354,33 @@ button, input, select, textarea {
 .custom-scroll-dark::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.2);
   border-radius: 3px;
+}
+
+/* Card padding that tightens on phones so nested panels keep a usable text column. */
+.fl-card-pad {
+  padding: 24px 28px;
+}
+
+.witness-page .btn {
+  max-width: 100%;
+  white-space: normal;
+}
+
+@media (max-width: 640px) {
+  .fl-card-pad {
+    padding: 18px 16px;
+  }
+}
+
+/* Visually hidden but still focusable/announced (used for native file inputs). */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

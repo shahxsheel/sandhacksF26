@@ -20,6 +20,21 @@ export function AudioRecorder({ onAudioReady, maxSeconds = 45 }: AudioRecorderPr
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Never leave the microphone on after the form goes away mid-recording.
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      const recorder = mediaRecorderRef.current;
+      if (recorder && recorder.state !== "inactive") {
+        recorder.onstop = null;
+        recorder.stop();
+      }
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window !== "undefined" && (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia)) {
@@ -34,6 +49,7 @@ export function AudioRecorder({ onAudioReady, maxSeconds = 45 }: AudioRecorderPr
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
 
@@ -49,20 +65,19 @@ export function AudioRecorder({ onAudioReady, maxSeconds = 45 }: AudioRecorderPr
         setAudioUrl(url);
         onAudioReady(audioBlob, "recording.webm");
         stream.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
       };
 
       mediaRecorder.start(200); // 200ms slice
       setIsRecording(true);
 
+      // Stop a second early: the server measures the recorded packets and rejects anything over maxSeconds.
+      const startedAt = Date.now();
       timerRef.current = setInterval(() => {
-        setRecordingSeconds((prev) => {
-          if (prev + 1 >= maxSeconds) {
-            stopRecording();
-            return maxSeconds;
-          }
-          return prev + 1;
-        });
-      }, 1000);
+        const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+        setRecordingSeconds(Math.min(elapsed, maxSeconds));
+        if (elapsed >= maxSeconds - 1) stopRecording();
+      }, 250);
     } catch (err: unknown) {
       console.warn("Microphone access denied or unavailable:", err);
       setErrorMsg("Microphone permission was denied. You may upload an audio file below.");
@@ -95,6 +110,7 @@ export function AudioRecorder({ onAudioReady, maxSeconds = 45 }: AudioRecorderPr
     const file = e.target.files?.[0];
     if (!file) return;
 
+    e.target.value = "";
     if (file.size > 4 * 1024 * 1024) {
       setErrorMsg("Audio file exceeds the 4 MB limit.");
       return;
@@ -119,7 +135,7 @@ export function AudioRecorder({ onAudioReady, maxSeconds = 45 }: AudioRecorderPr
 
   return (
     <div style={{ background: "var(--cream-muted)", padding: "16px", borderRadius: "2px", border: "1px solid var(--cream-hairline)" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px", flexWrap: "wrap", gap: "6px" }}>
         <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--spruce-main)", display: "flex", alignItems: "center", gap: "6px" }}>
           <Mic size={15} /> Short Voice Note (Optional)
         </span>
@@ -210,19 +226,19 @@ export function AudioRecorder({ onAudioReady, maxSeconds = 45 }: AudioRecorderPr
               </button>
             )}
 
-            <label
-              className="btn btn-sm btn-outline-dark"
-              style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "6px" }}
-            >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="audio/*"
+              onChange={handleFileUpload}
+              className="visually-hidden"
+              tabIndex={-1}
+              aria-hidden="true"
+            />
+            <button type="button" onClick={() => fileInputRef.current?.click()} className="btn btn-sm btn-outline-dark">
               <Upload size={14} />
               <span>Upload Audio File</span>
-              <input
-                type="file"
-                accept="audio/*"
-                onChange={handleFileUpload}
-                style={{ display: "none" }}
-              />
-            </label>
+            </button>
           </div>
           <span style={{ fontSize: "0.75rem", color: "var(--text-dim)" }}>
             Bystander audio is transcribed automatically to add context to the coordinator brief.

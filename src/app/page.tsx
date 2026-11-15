@@ -240,7 +240,7 @@ export default function HomePage() {
               Calm coordination when seconds matter.
             </h2>
             <p style={{ fontSize: "1.05rem", color: "var(--text-muted)", marginTop: "14px", lineHeight: 1.6 }}>
-              In critical incidents, 911 dispatchers are overwhelmed with fragmented calls. FirstLink structures witness reports with source citations while routing volunteers only to coordinator-designated staging points — not into the hazard.
+              In the first minutes of an incident, what bystanders know arrives fragmented and unverified. FirstLink structures witness reports with source citations while routing volunteers only to coordinator-designated staging points — not into the hazard.
             </p>
           </div>
 
@@ -301,7 +301,7 @@ export default function HomePage() {
                   3. Bounded Staging Dispatch
                 </h3>
                 <p style={{ fontSize: "0.9375rem", color: "var(--text-muted)", lineHeight: 1.6 }}>
-                  Nearby registered volunteers receive tasks exclusively for designated staging locations. Strict boundary guards prevent hazardous self-dispatch.
+                  A coordinator approves nearby registered volunteers for designated staging points only; volunteers cannot assign themselves. In this demo no message is sent.
                 </p>
               </div>
               <div style={{ marginTop: "24px" }}>

@@ -56,6 +56,40 @@ export function assertSameOrigin(request: Request): void {
   if (originHost !== expected) throw new ApiError(403, "Cross-origin requests are not allowed.");
 }
 
+const LOOPBACK = /^(?:127\.\d+\.\d+\.\d+|::1|::ffff:127\.\d+\.\d+\.\d+)$/;
+
+/**
+ * Client address as seen by the reverse proxy (Caddy replaces untrusted X-Forwarded-For with the peer address and the
+ * app port is bound to localhost). Next.js fills in the socket address when the header is absent, so loopback means
+ * the request did not come through the proxy (local development, tests) and returns null.
+ */
+export function proxiedClientIp(request: Request): string | null {
+  const last = request.headers.get("x-forwarded-for")?.split(",").pop()?.trim();
+  return last && !LOOPBACK.test(last) ? last.slice(0, 64) : null;
+}
+
+const ipWindows = new Map<string, { start: number; count: number }>();
+
+/** In-process fixed-window limit per proxied client address (single-server deployment). Unproxied requests pass. */
+export function takeIpSlot(request: Request, bucket: string, max: number, windowMs: number): boolean {
+  const ip = proxiedClientIp(request);
+  if (!ip) return true;
+  const now = Date.now();
+  if (ipWindows.size > 5000) {
+    for (const [key, value] of ipWindows) if (now - value.start >= windowMs) ipWindows.delete(key);
+    if (ipWindows.size > 5000) ipWindows.clear();
+  }
+  const key = `${bucket}|${ip}`;
+  const slot = ipWindows.get(key);
+  if (!slot || now - slot.start >= windowMs) {
+    ipWindows.set(key, { start: now, count: 1 });
+    return true;
+  }
+  if (slot.count >= max) return false;
+  slot.count += 1;
+  return true;
+}
+
 export async function readJson<T>(request: Request, schema: z.ZodType<T>, maxBytes: number = LIMITS.maxJsonBytes): Promise<T> {
   const type = request.headers.get("content-type") ?? "";
   if (!type.toLowerCase().startsWith("application/json")) throw new ApiError(415, "Send the request as JSON.");

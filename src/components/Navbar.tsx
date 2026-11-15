@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { RefreshCw, RotateCcw, Share2, Check, ExternalLink, ShieldAlert } from "lucide-react";
@@ -8,33 +8,52 @@ import type { DemoState } from "../lib/types";
 
 interface NavbarProps {
   state?: DemoState | null;
+  /**
+   * Set on witness/volunteer pages opened by the workspace owner (no access token) so they can switch views.
+   * Shared-link viewers never get the view switcher or share links: those lead to coordinator-only pages.
+   */
+  ownerIncidentId?: string;
   onRefresh?: () => void;
   onReset?: () => void;
   isRefreshing?: boolean;
 }
 
-export function Navbar({ state, onRefresh, onReset, isRefreshing }: NavbarProps) {
+export function Navbar({ state, ownerIncidentId, onRefresh, onReset, isRefreshing }: NavbarProps) {
   const pathname = usePathname();
   const [copiedRole, setCopiedRole] = useState<string | null>(null);
+  const [copyError, setCopyError] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [origin, setOrigin] = useState("");
+  const shareButtonRef = useRef<HTMLButtonElement | null>(null);
 
-  const incidentId = state?.incident.id;
+  useEffect(() => setOrigin(window.location.origin), []);
+
+  const isCoordinatorView = Boolean(state?.access);
+  const showViewSwitcher = isCoordinatorView || Boolean(ownerIncidentId);
+  const incidentId = state?.incident.id ?? ownerIncidentId;
+
+  useEffect(() => {
+    if (!showShareModal) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeShareModal();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showShareModal]);
+
+  function closeShareModal() {
+    setShowShareModal(false);
+    setCopyError(null);
+    shareButtonRef.current?.focus();
+  }
   const witnessToken = state?.access?.witnessToken;
   const volunteerToken = state?.access?.volunteerToken;
 
   const witnessUrl =
-    incidentId && typeof window !== "undefined"
-      ? `${window.location.origin}/report/${incidentId}${witnessToken ? `?access=${witnessToken}` : ""}`
-      : incidentId
-        ? `/report/${incidentId}${witnessToken ? `?access=${witnessToken}` : ""}`
-        : "/dashboard";
+    incidentId ? `${origin}/report/${incidentId}${witnessToken ? `?access=${witnessToken}` : ""}` : "/dashboard";
 
   const volunteerUrl =
-    incidentId && typeof window !== "undefined"
-      ? `${window.location.origin}/volunteer/${incidentId}${volunteerToken ? `?access=${volunteerToken}` : ""}`
-      : incidentId
-        ? `/volunteer/${incidentId}${volunteerToken ? `?access=${volunteerToken}` : ""}`
-        : "/dashboard";
+    incidentId ? `${origin}/volunteer/${incidentId}${volunteerToken ? `?access=${volunteerToken}` : ""}` : "/dashboard";
 
   const copyToClipboard = async (text: string, label: string) => {
     try {
@@ -52,10 +71,11 @@ export function Navbar({ state, onRefresh, onReset, isRefreshing }: NavbarProps)
         document.execCommand("copy");
         document.body.removeChild(textArea);
       }
+      setCopyError(null);
       setCopiedRole(label);
       setTimeout(() => setCopiedRole(null), 2400);
-    } catch (err) {
-      console.error("Clipboard copy failed:", err);
+    } catch {
+      setCopyError("Copy is blocked in this browser. Select the link text and copy it manually.");
     }
   };
 
@@ -73,13 +93,16 @@ export function Navbar({ state, onRefresh, onReset, isRefreshing }: NavbarProps)
           alignItems: "center",
           justifyContent: "space-between",
           padding: "0 20px",
+          gap: "12px",
           color: "var(--cream)",
         }}
+        className="fl-navbar"
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
+        <div className="fl-navbar-brand" style={{ display: "flex", alignItems: "center", gap: "20px", minWidth: 0 }}>
           {/* Logo mark + wordmark */}
           <Link
             href="/"
+            aria-label="FirstLink home"
             style={{
               display: "flex",
               alignItems: "center",
@@ -93,6 +116,7 @@ export function Navbar({ state, onRefresh, onReset, isRefreshing }: NavbarProps)
               <path d="M16 20h19v8H24v16h-8zM29 36h11V20h8v24H29z" fill="var(--accent-lime)" />
             </svg>
             <span
+              className="fl-navbar-wordmark"
               style={{
                 fontSize: "1.125rem",
                 fontWeight: 600,
@@ -116,7 +140,9 @@ export function Navbar({ state, onRefresh, onReset, isRefreshing }: NavbarProps)
         </div>
 
         {/* View Switcher / Navigation Tabs */}
+        {showViewSwitcher && (
         <nav
+          aria-label="Demo views"
           style={{
             display: "flex",
             alignItems: "center",
@@ -158,9 +184,10 @@ export function Navbar({ state, onRefresh, onReset, isRefreshing }: NavbarProps)
             Volunteer View
           </Link>
         </nav>
+        )}
 
         {/* Right utility buttons */}
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <div className="fl-navbar-actions" style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
           {onRefresh && (
             <button
               onClick={onRefresh}
@@ -174,15 +201,19 @@ export function Navbar({ state, onRefresh, onReset, isRefreshing }: NavbarProps)
             </button>
           )}
 
+          {isCoordinatorView && (
           <button
+            ref={shareButtonRef}
             onClick={() => setShowShareModal(true)}
             className="btn btn-sm btn-outline-light"
             title="Share witness or volunteer links"
             aria-label="Share links"
+            aria-haspopup="dialog"
           >
             <Share2 size={14} />
             <span className="hide-mobile">Share</span>
           </button>
+          )}
 
           {onReset && (
             <button
@@ -220,7 +251,7 @@ export function Navbar({ state, onRefresh, onReset, isRefreshing }: NavbarProps)
             justifyContent: "center",
             padding: "16px",
           }}
-          onClick={() => setShowShareModal(false)}
+          onClick={closeShareModal}
         >
           <div
             className="card-dark"
@@ -243,9 +274,12 @@ export function Navbar({ state, onRefresh, onReset, isRefreshing }: NavbarProps)
                 </p>
               </div>
               <button
-                onClick={() => setShowShareModal(false)}
+                type="button"
+                autoFocus
+                onClick={closeShareModal}
                 className="btn btn-sm btn-outline-light"
                 style={{ padding: "4px 10px" }}
+                aria-label="Close share links"
               >
                 ✕
               </button>
@@ -263,19 +297,30 @@ export function Navbar({ state, onRefresh, onReset, isRefreshing }: NavbarProps)
                 <div style={{ display: "flex", gap: "8px" }}>
                   <input
                     readOnly
+                    aria-label="Witness reporting link"
+                    onFocus={(e) => e.currentTarget.select()}
                     value={witnessUrl}
                     className="input"
-                    style={{ background: "#062226", color: "var(--cream)", fontSize: "0.8125rem", border: "1px solid var(--spruce-hairline)" }}
+                    style={{ background: "#062226", color: "var(--cream)", fontSize: "0.8125rem", border: "1px solid var(--spruce-hairline)", minWidth: 0 }}
                   />
                   <button
+                    type="button"
                     onClick={() => copyToClipboard(witnessUrl, "witness")}
                     className="btn btn-sm btn-primary"
                     style={{ minWidth: "90px" }}
+                    aria-label="Copy witness link"
                   >
                     {copiedRole === "witness" ? <Check size={14} /> : <Share2 size={14} />}
                     {copiedRole === "witness" ? "Copied" : "Copy"}
                   </button>
                 </div>
+                <Link
+                  href={witnessUrl}
+                  onClick={() => setShowShareModal(false)}
+                  style={{ display: "inline-flex", alignItems: "center", gap: "4px", marginTop: "8px", fontSize: "0.8125rem", color: "var(--accent-lime)" }}
+                >
+                  <ExternalLink size={13} /> Open witness view here
+                </Link>
               </div>
 
               {/* Volunteer link */}
@@ -289,24 +334,41 @@ export function Navbar({ state, onRefresh, onReset, isRefreshing }: NavbarProps)
                 <div style={{ display: "flex", gap: "8px" }}>
                   <input
                     readOnly
+                    aria-label="Volunteer portal link"
+                    onFocus={(e) => e.currentTarget.select()}
                     value={volunteerUrl}
                     className="input"
-                    style={{ background: "#062226", color: "var(--cream)", fontSize: "0.8125rem", border: "1px solid var(--spruce-hairline)" }}
+                    style={{ background: "#062226", color: "var(--cream)", fontSize: "0.8125rem", border: "1px solid var(--spruce-hairline)", minWidth: 0 }}
                   />
                   <button
+                    type="button"
                     onClick={() => copyToClipboard(volunteerUrl, "volunteer")}
                     className="btn btn-sm btn-primary"
                     style={{ minWidth: "90px" }}
+                    aria-label="Copy volunteer link"
                   >
                     {copiedRole === "volunteer" ? <Check size={14} /> : <Share2 size={14} />}
                     {copiedRole === "volunteer" ? "Copied" : "Copy"}
                   </button>
                 </div>
+                <Link
+                  href={volunteerUrl}
+                  onClick={() => setShowShareModal(false)}
+                  style={{ display: "inline-flex", alignItems: "center", gap: "4px", marginTop: "8px", fontSize: "0.8125rem", color: "var(--accent-lime)" }}
+                >
+                  <ExternalLink size={13} /> Open volunteer view here
+                </Link>
               </div>
             </div>
 
+            {copyError && (
+              <p role="alert" style={{ marginTop: "12px", fontSize: "0.8125rem", color: "var(--caution-border)" }}>
+                {copyError}
+              </p>
+            )}
+
             <div style={{ marginTop: "24px", paddingTop: "16px", borderTop: "1px solid var(--spruce-hairline)", display: "flex", justifyContent: "flex-end" }}>
-              <button onClick={() => setShowShareModal(false)} className="btn btn-sm btn-outline-light">
+              <button type="button" onClick={closeShareModal} className="btn btn-sm btn-outline-light">
                 Close
               </button>
             </div>
@@ -315,6 +377,9 @@ export function Navbar({ state, onRefresh, onReset, isRefreshing }: NavbarProps)
       )}
 
       <style jsx global>{`
+        @media (max-width: 380px) {
+          .fl-navbar-wordmark { display: none; }
+        }
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
@@ -325,6 +390,18 @@ export function Navbar({ state, onRefresh, onReset, isRefreshing }: NavbarProps)
         @media (max-width: 640px) {
           .hide-mobile {
             display: none !important;
+          }
+          .fl-navbar {
+            padding: 0 12px !important;
+          }
+          .fl-navbar-brand {
+            gap: 10px !important;
+          }
+          .fl-navbar-actions {
+            gap: 6px !important;
+          }
+          .fl-navbar-actions .btn {
+            padding: 7px 9px;
           }
         }
       `}</style>

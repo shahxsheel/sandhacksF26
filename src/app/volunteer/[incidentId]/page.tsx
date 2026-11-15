@@ -62,7 +62,10 @@ export default function VolunteerPortalPage({ params }: VolunteerPageProps) {
 
   const currentVolunteer: Volunteer | undefined = state?.volunteers.find((v) => v.id === selectedVolunteerId);
 
-  const currentAssignment: Assignment | undefined = state?.assignments.find((a) => a.volunteerId === selectedVolunteerId);
+  // A volunteer can be re-approved after declining: show the active assignment, otherwise the most recent one.
+  const volunteerAssignments = state?.assignments.filter((a) => a.volunteerId === selectedVolunteerId) ?? [];
+  const currentAssignment: Assignment | undefined =
+    volunteerAssignments.find((a) => a.status === "approved" || a.status === "accepted") ?? volunteerAssignments[volunteerAssignments.length - 1];
 
   const handleRespond = async (action: "accept" | "decline") => {
     if (!currentAssignment || !state) return;
@@ -93,7 +96,7 @@ export default function VolunteerPortalPage({ params }: VolunteerPageProps) {
   if (isLoading) {
     return (
       <div style={{ minHeight: "100vh", background: "var(--cream)", display: "flex", flexDirection: "column" }}>
-        <Navbar />
+        <Navbar ownerIncidentId={access ? undefined : incidentId} />
         <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "16px" }}>
           <span className="pulse-dot" style={{ width: "16px", height: "16px" }} />
           <p style={{ fontSize: "0.9375rem", color: "var(--spruce-muted)" }}>
@@ -107,7 +110,7 @@ export default function VolunteerPortalPage({ params }: VolunteerPageProps) {
   if (!state) {
     return (
       <div style={{ minHeight: "100vh", background: "var(--cream)", display: "flex", flexDirection: "column" }}>
-        <Navbar />
+        <Navbar ownerIncidentId={access ? undefined : incidentId} />
         <main style={{ flex: 1, padding: "48px 24px" }}>
           <SessionLoadPanel
             title="Access denied"
@@ -122,7 +125,7 @@ export default function VolunteerPortalPage({ params }: VolunteerPageProps) {
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--cream)", display: "flex", flexDirection: "column" }}>
-      <Navbar state={state} />
+      <Navbar state={state} ownerIncidentId={access ? undefined : incidentId} />
 
       <main style={{ flex: 1, padding: "32px 24px 64px" }}>
         <div style={{ maxWidth: "680px", margin: "0 auto" }}>
@@ -150,6 +153,7 @@ export default function VolunteerPortalPage({ params }: VolunteerPageProps) {
             </div>
           </div>
 
+          {state.volunteers.length > 0 && (
           <div
             className="card-light"
             style={{
@@ -178,6 +182,7 @@ export default function VolunteerPortalPage({ params }: VolunteerPageProps) {
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <span style={{ fontSize: "0.75rem", color: "var(--text-dim)" }}>Demo view as:</span>
               <select
+                aria-label="Volunteer to view as"
                 value={selectedVolunteerId}
                 onChange={(e) => {
                   setSelectedVolunteerId(e.target.value);
@@ -195,6 +200,7 @@ export default function VolunteerPortalPage({ params }: VolunteerPageProps) {
               </select>
             </div>
           </div>
+          )}
 
           {errorMsg && (
             <div
@@ -257,7 +263,7 @@ export default function VolunteerPortalPage({ params }: VolunteerPageProps) {
                       {currentAssignment.status === "approved" ? "Assignment approved" : currentAssignment.status}
                     </span>
                     <span style={{ fontSize: "0.75rem", color: "var(--text-dim)" }}>
-                      Dispatched {new Date(currentAssignment.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      Approved {new Date(currentAssignment.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </span>
                   </div>
 
@@ -266,7 +272,7 @@ export default function VolunteerPortalPage({ params }: VolunteerPageProps) {
                   </h2>
                 </div>
 
-                <div className="badge badge-dark" style={{ background: "var(--cream-muted)", color: "var(--spruce-main)" }}>
+                <div className="badge badge-dark" style={{ background: "var(--cream-muted)", color: "var(--spruce-main)", whiteSpace: "normal" }}>
                   <MapPin size={12} /> {state.incident.stagingArea}
                 </div>
               </div>
@@ -377,24 +383,28 @@ export default function VolunteerPortalPage({ params }: VolunteerPageProps) {
               </h3>
 
               <p style={{ fontSize: "0.9375rem", color: "var(--text-muted)", lineHeight: 1.6, maxWidth: "460px", margin: "0 auto 24px" }}>
-                No approved assignments yet. Stay outside the perimeter until the coordinator dispatches a staging task for {state.incident.stagingArea}.
+                No approved assignments yet. Stay outside the perimeter until the coordinator approves a staging task at {state.incident.stagingArea}.
               </p>
 
-              <div style={{ display: "flex", justifyContent: "center", gap: "12px", flexWrap: "wrap" }}>
-                <Link href="/dashboard" className="btn btn-outline-dark">
-                  <span>Open coordinator workspace to dispatch a task</span>
-                  <ArrowRight size={14} />
-                </Link>
-              </div>
+              {!access && (
+                <div style={{ display: "flex", justifyContent: "center", gap: "12px", flexWrap: "wrap" }}>
+                  <Link href="/dashboard" className="btn btn-outline-dark" style={{ whiteSpace: "normal" }}>
+                    <span>Open coordinator workspace to approve a task</span>
+                    <ArrowRight size={14} />
+                  </Link>
+                </div>
+              )}
             </div>
           )}
 
-          <div style={{ marginTop: "24px", textAlign: "center" }}>
-            <Link href="/dashboard" style={{ fontSize: "0.875rem", color: "var(--text-muted)", display: "inline-flex", alignItems: "center", gap: "4px" }}>
-              <ChevronLeft size={14} />
-              <span>Back to incident workspace</span>
-            </Link>
-          </div>
+          {!access && (
+            <div style={{ marginTop: "24px", textAlign: "center" }}>
+              <Link href="/dashboard" style={{ fontSize: "0.875rem", color: "var(--text-muted)", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                <ChevronLeft size={14} />
+                <span>Back to incident workspace</span>
+              </Link>
+            </div>
+          )}
         </div>
       </main>
     </div>

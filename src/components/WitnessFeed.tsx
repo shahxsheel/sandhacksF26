@@ -8,7 +8,7 @@ interface WitnessFeedProps {
   reports: WitnessReport[];
   incidentId: string;
   selectedReportId?: string | null;
-  onSelectReport?: (reportId: string) => void;
+  onSelectReport?: (reportId: string | null) => void;
 }
 
 export function WitnessFeed({
@@ -25,17 +25,30 @@ export function WitnessFeed({
     setMediaErrors((prev) => (prev[key] ? prev : { ...prev, [key]: label }));
   };
 
-  const toggleExpand = (id: string) => {
-    setExpandedReportId((prev) => (prev === id ? null : id));
+  // Selecting a source (from the brief or map) opens that report; the header toggles it closed again.
+  const toggleReport = (id: string, isExpanded: boolean) => {
+    setExpandedReportId(isExpanded ? null : id);
+    onSelectReport?.(isExpanded ? null : id);
   };
 
+  React.useEffect(() => {
+    if (!activePhoto) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setActivePhoto(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [activePhoto]);
+
   return (
-    <div className="card-light" style={{ padding: "24px 28px", marginBottom: "28px" }}>
+    <div className="card-light fl-card-pad" style={{ marginBottom: "28px" }}>
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
+          flexWrap: "wrap",
+          gap: "8px 12px",
           marginBottom: "18px",
           paddingBottom: "14px",
           borderBottom: "1px solid var(--cream-hairline)",
@@ -46,7 +59,7 @@ export function WitnessFeed({
             Witness Evidence Feed
           </h3>
           <p style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginTop: "2px" }}>
-            Real bystander observations and media submissions from safe locations.
+            Bystander reports, photos and voice notes. Staged sample entries are labeled.
           </p>
         </div>
         <span className="badge badge-dark">
@@ -91,10 +104,7 @@ export function WitnessFeed({
                     gap: "8px",
                     cursor: "pointer",
                   }}
-                  onClick={() => {
-                    toggleExpand(report.id);
-                    if (onSelectReport) onSelectReport(report.id);
-                  }}
+                  onClick={() => toggleReport(report.id, isExpanded)}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
                     <span
@@ -145,7 +155,8 @@ export function WitnessFeed({
 
                     <button
                       type="button"
-                      aria-label={isExpanded ? "Collapse report" : "Expand report"}
+                      aria-label={`${isExpanded ? "Collapse" : "Expand"} report ${report.sourceLabel}`}
+                      aria-expanded={isExpanded}
                       style={{ background: "none", border: "none", cursor: "pointer", color: "var(--spruce-muted)" }}
                     >
                       {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -245,20 +256,26 @@ export function WitnessFeed({
                         </div>
                         {!mediaErrors[`photo-${report.id}`] ? (
                           <>
-                            <img
-                              src={`/api/media/${report.photoId}?incidentId=${incidentId}`}
-                              alt={`Observation by ${report.name}`}
+                            <button
+                              type="button"
                               onClick={() => setActivePhoto(`/api/media/${report.photoId}?incidentId=${incidentId}`)}
-                              onError={() => markMediaError(`photo-${report.id}`, "Could not load photo evidence.")}
-                              style={{
-                                maxWidth: "240px",
-                                maxHeight: "160px",
-                                objectFit: "cover",
-                                borderRadius: "2px",
-                                border: "1px solid var(--cream-hairline)",
-                                cursor: "pointer",
-                              }}
-                            />
+                              aria-label={`Enlarge photo from report ${report.sourceLabel}`}
+                              style={{ display: "block", padding: 0, border: "none", background: "none", cursor: "pointer", borderRadius: "2px" }}
+                            >
+                              <img
+                                src={`/api/media/${report.photoId}?incidentId=${incidentId}`}
+                                alt={`Photo attached to report ${report.sourceLabel} by ${report.name}`}
+                                onError={() => markMediaError(`photo-${report.id}`, "Could not load photo evidence.")}
+                                style={{
+                                  display: "block",
+                                  maxWidth: "min(240px, 100%)",
+                                  maxHeight: "160px",
+                                  objectFit: "cover",
+                                  borderRadius: "2px",
+                                  border: "1px solid var(--cream-hairline)",
+                                }}
+                              />
+                            </button>
                             <span style={{ fontSize: "0.6875rem", color: "var(--text-dim)", display: "block", marginTop: "4px" }}>
                               Click to enlarge
                             </span>
@@ -292,6 +309,7 @@ export function WitnessFeed({
         <div
           role="dialog"
           aria-modal="true"
+          aria-label="Enlarged witness photo"
           onClick={() => setActivePhoto(null)}
           style={{
             position: "fixed",
@@ -312,6 +330,8 @@ export function WitnessFeed({
               style={{ maxWidth: "100%", maxHeight: "85vh", objectFit: "contain", borderRadius: "2px", border: "1px solid rgba(255,255,255,0.2)" }}
             />
             <button
+              type="button"
+              autoFocus
               onClick={() => setActivePhoto(null)}
               className="btn btn-sm btn-outline-light"
               style={{ position: "absolute", top: "-40px", right: 0 }}

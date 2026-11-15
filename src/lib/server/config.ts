@@ -11,6 +11,8 @@ export const LIMITS = {
   sessionTtlDays: 7,
   maxWorkspacesPerDay: 300,
   maxActiveWorkspaces: 1000,
+  /** Generous enough for a shared venue network; only applied to requests that came through the proxy. */
+  maxWorkspacesPerIpPerHour: 40,
   maxReports: 8,
   maxNotes: 20,
   maxAssignments: 20,
