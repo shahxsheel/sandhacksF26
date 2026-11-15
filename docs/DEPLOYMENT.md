@@ -57,3 +57,6 @@ Current application release: `2927413`. Adds the operator console and three conc
 
 
 Custom domain: host Caddy serves `firstlink.work`, `www.firstlink.work` and `firstlink.144.202.126.31.sslip.io` (via `FIRSTLINK_HOST` in `/etc/systemd/system/caddy.service.d/firstlink.conf`; the previous value is kept as `firstlink.conf.bak`). The app is host-agnostic: same-origin checks compare against the request's own host. HTTPS certificates for `firstlink.work` are issued automatically once its DNS at Porkbun points to `144.202.126.31`: an `A` record on the apex, plus `www` as an `A` record or a `CNAME` to the apex, replacing the Porkbun parking records.
+
+Verified on 2026-11-15: DNS at Porkbun points `firstlink.work` (A) and `www.firstlink.work` (CNAME) to the instance. Caddy obtained Let's Encrypt certificates for both. `/`, `/dashboard` and `/api/health` return 200 over HTTPS. A browser on `https://firstlink.work` opened the console and submitted a staged report, which passed the same-origin check, with no page errors. **Primary public URL: https://firstlink.work**.
+

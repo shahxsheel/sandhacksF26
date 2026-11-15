@@ -51,7 +51,7 @@ Point at the queue counts and the "Routed" tag with its reason in the drawer.
 - **Reset** (navbar) resets all three incidents; ids and share links are kept. Run the staged inputs again after a reset.
 - Screening, routing and transcription results are cached in Neon by exact input, so repeated staged runs make no provider calls. A brief or narration is still a paid, explicit action.
 - If Gemini is unavailable (see [GEMINI.md](GEMINI.md) — quota status), reports are kept and labelled **Not screened** and intake reports are not routed. Check the presenter results before presenting.
-- **Public URL** `https://firstlink.144.202.126.31.sslip.io`; see [DEPLOYMENT.md](DEPLOYMENT.md).
+- **Public URL** `https://firstlink.work` (also `https://firstlink.144.202.126.31.sslip.io`); see [DEPLOYMENT.md](DEPLOYMENT.md).
 - Media credits: `public/sim/CREDITS.md`.
 
 ## What we do not verify
