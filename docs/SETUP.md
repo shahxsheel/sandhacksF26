@@ -65,7 +65,7 @@ The runtime environment file contains the three application credentials plus opt
 
 - Next.js production build and TypeScript check pass. The generated standalone server returns HTTP 200 for the home page and the expected health payload for `/api/health`.
 - All provider SDK imports load, and the Neon, ElevenLabs, and Vultr CLIs run.
-- Playwright Chromium and its headless shell are installed. The full desktop/mobile suite passed 26 tests before final review; screenshots were inspected at 1440, 375, and 320 px widths. See [validation](VALIDATION.md) for final results.
+- Playwright Chromium and its headless shell are installed. The final full desktop/mobile review passed 32 tests, followed by eight passing targeted checks after narrow-screen and hydration refinements. Screenshots were inspected at 1440, 375, and 320 px widths. See [validation](VALIDATION.md) for final results.
 - Credential-free dependency audit reports zero known vulnerabilities after the scoped overrides.
 - At initial tooling setup, no service credentials were configured and no live provider request had been verified. See [Gemini setup](GEMINI.md) for the subsequent Interactions API configuration and test status.
 - Subsequently, Gemini, ElevenLabs, Vultr, and Neon credentials were supplied or retrieved and saved in the ignored, owner-readable `.env.local` file.

@@ -26,7 +26,7 @@ Runtime needs `ffprobe` (ffmpeg package) on `PATH` to accept voice notes; withou
 
 ## Limits and guards
 
-- Workspaces: 300/day, 1000 active, 7-day sliding expiry (renewed at most hourly). 8 reports, 20 notes, 20 assignments per workspace.
+- Workspaces: 40 new workspaces/network/hour behind the direct Caddy proxy (in-memory single-server guard; existing owners and loopback exempt), 300/day globally, 1000 active, 7-day sliding expiry (renewed at most hourly). 8 reports, 20 notes, 20 assignments per workspace.
 - Paid calls: per-session fixed-window rate limits (brief 6/h, transcription 4/day, narration 6/h, report submits 20/h) plus an atomic global reservation in `fl_budgets` (single conditional UPDATE). Gemini reserves USD 0.20/request against a USD 14 cap (code hard cap USD 16); ElevenLabs reserves 5,000 units/transcription and 3,000/narration against 40,000 (hard cap 42,000). Reservations persist across restarts, stay counted after a request is sent, and are released only when the call never left the server. Narration is cached by SHA-256(model, voice, format, text), and cache hits reserve nothing. Actual token counts are recorded in `fl_usage.detail`.
 - Providers: one request each, no retries; raw provider errors are never logged or returned.
 - Uploads: 4 MB each, 9 MB multipart. Photos are decoded with sharp (JPEG/PNG/WebP only, single frame), EXIF-rotated, stripped, resized to <=1600 px and re-encoded to JPEG. Audio must probe as a real audio-only container (WebM/Ogg/MP4/MP3/WAV/AAC) and its measured packet duration must be <=45 s (headers are not trusted). Files live at `DATA_DIR/media/<incidentId>/<uuid>.<ext>` with server-generated names and are served only by `/api/media/[id]` after authorization.

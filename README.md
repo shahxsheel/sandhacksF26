@@ -8,6 +8,10 @@ FirstLink is a hackathon demonstration for a **staged campus incident**: witness
 
 This is **not** a live 911 feed, emergency dispatch system, or safety authority. Professional response, travel times, medical triage, structural safety, and physical volunteer movement are **simulated** for the story.
 
+[Open the live demo](https://firstlink.144.202.126.31.sslip.io)
+
+![FirstLink public landing page](docs/screenshots/landing-desktop.png)
+
 ## Three roles, one incident
 
 | Role | Where | What they do |
@@ -33,11 +37,11 @@ Operating limits (authorized caps, not targets): Gemini **$20** total API spend 
 
 | Check | Status |
 | --- | --- |
-| Backend integration (`npm run test:backend`) | **23 passed** |
-| Playwright E2E desktop + mobile (`npm run test:e2e`) | **26 passed** |
+| Backend integration (`npm run test:backend`) | **25 passed** |
+| Playwright E2E desktop + mobile (`npm run test:e2e`) | **32 passed** in full review; **8 targeted checks passed** after final narrow-screen fixes |
 | Live Gemini brief with valid source report IDs | **Verified** in integration testing |
 | Live voice upload → transcription → media playback | **Verified locally and on the public deployment** |
-| Public app at `https://firstlink.144.202.126.31.sslip.io` | **Live over HTTPS**—public report/approval/acceptance and provider checks passed; final review release pending ([docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)) |
+| Public app at `https://firstlink.144.202.126.31.sslip.io` | **Live over HTTPS**—public report/approval/acceptance and provider checks passed ([docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)) |
 
 Full evidence and limits: [docs/VALIDATION.md](docs/VALIDATION.md).
 
@@ -74,6 +78,7 @@ Private source: **https://github.com/shahxsheel/sandhacks** (checkpointed on `ma
 
 ## Docs map
 
+- **Submission copy and track evidence:** [docs/SUBMISSION.md](docs/SUBMISSION.md)
 - **Judge demo script:** [docs/DEMO.md](docs/DEMO.md)
 - Design system: [docs/DESIGN.md](docs/DESIGN.md)
 - Dev setup (CLIs, credentials shape): [docs/SETUP.md](docs/SETUP.md)
