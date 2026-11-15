@@ -46,3 +46,7 @@ The running instance continues to accrue compute charges until deleted. When ret
 ## Two-step witness update
 
 Current application release: `afc3f35e94b85888b8c48f995c964e04a12d81da`. Witnesses first read the safety disclaimer and confirm consent, then continue to the observation form. Returning to safety preserves text, photo, and audio drafts. The image built successfully, Compose reported healthy, and a public 320 px browser check passed disclaimer gating, forward/back navigation, and draft retention with zero page errors. No paid provider calls were required for this update.
+
+## Normal and simulation modes update
+
+Current application release: `129b709`. Adds the dashboard Normal/Simulation modes, per-report Gemini screening and the La Jolla canyon-fire scenario. The `fl_reports` screening columns and `fl_provider_cache` were added to the existing Neon branch with `npm run db:init` (idempotent, `fl_` objects only). Compose reported healthy. A public browser run sent all five staged reports in 2.4 s from cached results: four accepted, the fabricated report withheld with a specific reason and absent from the feed and brief, no page errors, no horizontal overflow at 375 px, and no new provider reservations.

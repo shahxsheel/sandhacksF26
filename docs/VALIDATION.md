@@ -38,3 +38,7 @@ No live 911/CAD feed, emergency-agency integration, medical triage, safe-route d
 ## Two-step witness form update
 
 Release `afc3f35`: TypeScript and production builds pass. Eight affected desktop/mobile checks passed against the local production server, including disclaimer consent gating, successful typed submission, reset, text/audio draft retention, shared witness access, and 320 px controls. Both steps were visually inspected at 375 px. A public 320 px smoke check passed with zero page errors after deployment. The development server had repeatedly reloaded during the initial test attempt; the production-server run above is the passing verification.
+
+## Normal and simulation modes
+
+Release `129b709`: TypeScript and production builds pass; 27 backend checks pass (new: flagged reports withheld from feed and brief, names not sent to screening, cached verdicts reserve nothing, failures stored as unscreened); 38 Playwright checks pass against a local production server. A cold live run took 91 s with 5 Gemini screenings (605–1,773 input and 39–60 output tokens each) and 2 ElevenLabs transcriptions; Gemini accepted all four genuine staged reports and withheld the fabricated one. A rerun on a fresh workspace took 1.9 s with zero new reservations. Desktop and 375 px layouts were visually inspected; at 375 px the schematic map scrolls horizontally inside its panel by design. App reservations after testing: Gemini USD 1.60 of 14, ElevenLabs 31,000 of 40,000 units (actual account usage 393 of 131,000 characters).
