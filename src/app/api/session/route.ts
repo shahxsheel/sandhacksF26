@@ -2,7 +2,7 @@ import { z } from "zod";
 import { authorize, resolveOwner, sessionCookie } from "@/lib/server/auth";
 import { LIMITS } from "@/lib/server/config";
 import { ApiError, accessSchema, json, route, takeIpSlot, uuidSchema } from "@/lib/server/http";
-import { createWorkspace, loadState } from "@/lib/server/store";
+import { createWorkspace, ensureScenes, loadState } from "@/lib/server/store";
 import { stateFor } from "@/lib/server/services";
 
 export const runtime = "nodejs";
@@ -29,7 +29,10 @@ export const GET = route(async (request: Request) => {
   if (role || access) throw new ApiError(400, "incidentId is required for shared views.");
 
   const owner = await resolveOwner(request);
-  if (owner) return json({ state: await loadState(owner.incidentId, "coordinator", owner.secret) });
+  if (owner) {
+    await ensureScenes(owner.sessionId, owner.secret, owner.scenes);
+    return json({ state: await loadState(owner.incidentId, "coordinator", owner.secret) });
+  }
 
   // One client must not be able to use up the global daily workspace allowance for everyone else.
   if (!takeIpSlot(request, "workspace", LIMITS.maxWorkspacesPerIpPerHour, 3_600_000)) {

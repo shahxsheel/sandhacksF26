@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { Pause, Volume2, RotateCw } from "lucide-react";
 import type { DemoState, IncidentBrief, WitnessReport } from "../lib/types";
-import { Sparkles, Volume2, VolumeX, AlertTriangle, HelpCircle, CheckCircle2, AlertOctagon, RotateCw, Play, Pause } from "lucide-react";
 import { generateBrief, fetchNarrationAudio, ApiError } from "./api";
 
 interface BriefCardProps {
@@ -13,451 +13,75 @@ interface BriefCardProps {
   onSelectReport: (reportId: string) => void;
 }
 
-export function BriefCard({
-  brief,
-  incidentId,
-  reports,
-  onStateUpdated,
-  onSelectReport,
-}: BriefCardProps) {
+export function BriefCard({ brief, incidentId, reports, onStateUpdated, onSelectReport }: BriefCardProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
-
   const [isNarrating, setIsNarrating] = useState(false);
   const [narrationError, setNarrationError] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const audioRef = React.useRef<HTMLAudioElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const narrationVersion = useRef(0);
 
-  // Narration belongs to one brief revision: drop it (and free the blob) when the brief changes or on unmount.
-  React.useEffect(() => {
+  useEffect(() => {
     if (!audioUrl) return;
     return () => URL.revokeObjectURL(audioUrl);
   }, [audioUrl]);
-  React.useEffect(() => {
+  useEffect(() => {
+    narrationVersion.current += 1;
     setAudioUrl(null);
     setIsPlaying(false);
+    setIsNarrating(false);
     setNarrationError(null);
-  }, [brief.revision]);
+    return () => { narrationVersion.current += 1; };
+  }, [brief.revision, incidentId]);
 
   const handleGenerate = async () => {
     setIsGenerating(true);
     setGenerateError(null);
-    try {
-      const newState = await generateBrief(incidentId);
-      onStateUpdated(newState);
-    } catch (err: unknown) {
-      if (err instanceof ApiError) {
-        setGenerateError(err.message);
-      } else {
-        setGenerateError("Failed to update brief. Ensure service is accessible.");
-      }
-    } finally {
-      setIsGenerating(false);
-    }
+    try { onStateUpdated(await generateBrief(incidentId)); }
+    catch (err) { setGenerateError(err instanceof ApiError ? err.message : "Could not regenerate brief. Try again."); }
+    finally { setIsGenerating(false); }
   };
-
   const handleNarrate = async () => {
+    const version = ++narrationVersion.current;
     setIsNarrating(true);
     setNarrationError(null);
     try {
       const blob = await fetchNarrationAudio(incidentId);
-      // The <audio> element autoplays; isPlaying follows its play/pause events.
-      setAudioUrl(URL.createObjectURL(blob));
-    } catch (err: unknown) {
-      if (err instanceof ApiError) {
-        setNarrationError(err.message);
-      } else {
-        setNarrationError("Audio narration could not be generated.");
-      }
-    } finally {
-      setIsNarrating(false);
-    }
+      if (version === narrationVersion.current) setAudioUrl(URL.createObjectURL(blob));
+    } catch (err) {
+      if (version === narrationVersion.current) setNarrationError(err instanceof ApiError ? err.message : "Audio narration unavailable. Try again.");
+    } finally { if (version === narrationVersion.current) setIsNarrating(false); }
   };
-
-  const toggleAudioPlay = () => {
+  const toggleAudio = () => {
     if (!audioRef.current) return;
-    if (isPlaying) {
-      audioRef.current.pause();
-    } else {
-      audioRef.current.play().catch(() => setNarrationError("Playback was blocked by the browser. Use the audio controls to play it."));
-    }
+    if (isPlaying) audioRef.current.pause();
+    else void audioRef.current.play().catch(() => setNarrationError("Use the audio player to start playback."));
   };
+  const sources = (ids: string[]) => <span className="console-source-links">{ids.map((id) => <button key={id} onClick={() => onSelectReport(id)} title="Open source report" aria-label={`View source report ${reports.find((report) => report.id === id)?.sourceLabel || id}`}>{reports.find((report) => report.id === id)?.sourceLabel || "W-?"}</button>)}</span>;
+  const sourceCount = new Set(brief.claims.flatMap((claim) => claim.reportIds).concat(brief.conflicts.flatMap((conflict) => conflict.reportIds))).size;
+  const provenance = brief.mode === "gemini" ? "Synthesized by Gemini from witness reports" : brief.mode === "sample" ? "Staged starter brief" : "Prepared locally from report text without AI";
 
-  // Helper to resolve source label for report ID
-  const getSourceLabel = (reportId: string): string => {
-    const r = reports.find((item) => item.id === reportId);
-    return r?.sourceLabel || "W-?";
-  };
-
-  return (
-    <div className="card-light fl-card-pad" style={{ marginBottom: "28px" }}>
-      {/* Header bar: Title, Mode badge, Revision, Action buttons */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          flexWrap: "wrap",
-          gap: "16px",
-          marginBottom: "20px",
-          paddingBottom: "16px",
-          borderBottom: "1px solid var(--cream-hairline)",
-        }}
-      >
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px", flexWrap: "wrap" }}>
-            <span style={{ fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.06em", color: "var(--spruce-muted)", textTransform: "uppercase" }}>
-              SHARED INCIDENT BRIEF
-            </span>
-
-            {/* Mode badge */}
-            {brief.mode === "gemini" ? (
-              <span className="badge badge-green" title="Synthesized from witness reports via Gemini">
-                <Sparkles size={12} /> AI synthesis (Gemini)
-              </span>
-            ) : brief.mode === "sample" ? (
-              <span className="badge badge-dark" title="Staged starter brief for this demo; not generated by AI">
-                Sample brief
-              </span>
-            ) : (
-              <span className="badge badge-caution" title="Prepared locally from report text without AI">
-                Rules-based (no AI)
-              </span>
-            )}
-
-            <span style={{ fontSize: "0.75rem", color: "var(--text-dim)" }}>
-              Rev #{brief.revision} · Updated {new Date(brief.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-            </span>
-          </div>
-
-          <h2 style={{ fontSize: "1.45rem", color: "var(--spruce-main)", fontWeight: 600 }}>
-            {brief.headline}
-          </h2>
-        </div>
-
-        {/* Action buttons */}
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-          {/* Audio narration button */}
-          <button
-            onClick={audioUrl ? toggleAudioPlay : handleNarrate}
-            disabled={isNarrating}
-            className="btn btn-sm btn-outline-dark"
-            aria-label="Narrate brief audio"
-          >
-            {isNarrating ? (
-              <>
-                <span className="pulse-dot" style={{ background: "var(--spruce-muted)" }} />
-                <span>Generating Voice...</span>
-              </>
-            ) : isPlaying ? (
-              <>
-                <Pause size={14} />
-                <span>Pause Narration</span>
-              </>
-            ) : (
-              <>
-                <Volume2 size={14} />
-                <span>{audioUrl ? "Play Narration" : "Listen to Brief"}</span>
-              </>
-            )}
-          </button>
-
-          {/* AI generation button */}
-          <button
-            onClick={handleGenerate}
-            disabled={isGenerating}
-            className="btn btn-sm btn-primary"
-            aria-label="Generate live brief with Gemini"
-          >
-            {isGenerating ? (
-              <>
-                <span className="pulse-dot" />
-                <span>Synthesizing...</span>
-              </>
-            ) : (
-              <>
-                <Sparkles size={14} />
-                <span>Update Brief (Gemini)</span>
-              </>
-            )}
-          </button>
-        </div>
+  return <div className="console-brief">
+    <div className="console-section-heading"><h2>Incident brief</h2><button className="btn btn-sm btn-outline-dark" onClick={audioUrl ? toggleAudio : handleNarrate} disabled={isNarrating} title="Audio narration by ElevenLabs" aria-label={isPlaying ? "Pause brief narration" : "Listen to brief"}>{isPlaying ? <Pause size={12} /> : <Volume2 size={12} />}{isNarrating ? "Preparing…" : isPlaying ? "Pause" : "Listen"}</button></div>
+    <div className="console-brief-content custom-scroll" tabIndex={0} role="region" aria-label="Brief content">
+      <p className="console-brief-version" title={provenance}>Brief v{brief.revision} · {sourceCount} sources · <time dateTime={brief.updatedAt}>{new Date(brief.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time></p>
+      <h3 className="console-brief-headline">{brief.headline}</h3>
+      <p className="console-brief-summary">{brief.summary}</p>
+      {audioUrl && <audio ref={audioRef} src={audioUrl} autoPlay controls onEnded={() => setIsPlaying(false)} onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)} onError={() => setNarrationError("Recording could not be played. Try again.")} className="console-brief-audio" />}
+      {generateError && <p className="console-inline-error" role="alert">{generateError}</p>}
+      {narrationError && <p className="console-inline-error" role="alert">{narrationError}</p>}
+      <div className="console-claims">
+        <h4>Observations & claims</h4>
+        {brief.claims.length ? brief.claims.map((claim) => <div key={claim.id} className={`console-claim ${claim.kind === "disputed" ? "is-disputed" : ""}`}><span className="console-claim-kind">{claim.kind}</span><p>{claim.text} {sources(claim.reportIds)}</p>{claim.note && <small>{claim.note}</small>}</div>) : <p className="console-empty">No source-linked claims yet.</p>}
       </div>
-
-      {/* Hidden or active HTML audio element */}
-      {audioUrl && (
-        <div
-          style={{
-            background: "var(--cream-muted)",
-            padding: "10px 16px",
-            borderRadius: "2px",
-            marginBottom: "16px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: "12px",
-            border: "1px solid var(--cream-hairline)",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <button
-              onClick={toggleAudioPlay}
-              className="btn btn-sm btn-dark"
-              style={{ padding: "4px 12px" }}
-              aria-label={isPlaying ? "Pause" : "Play"}
-            >
-              {isPlaying ? <Pause size={12} /> : <Play size={12} />}
-            </button>
-            <span style={{ fontSize: "0.8125rem", color: "var(--spruce-main)" }}>
-              Audio Narration · Generated via ElevenLabs
-            </span>
-          </div>
-          <audio
-            ref={audioRef}
-            src={audioUrl}
-            autoPlay
-            onEnded={() => setIsPlaying(false)}
-            onPlay={() => setIsPlaying(true)}
-            onPause={() => setIsPlaying(false)}
-            controls
-            style={{ height: "30px", maxWidth: "100%", minWidth: 0 }}
-          />
-        </div>
-      )}
-
-      {/* Errors display */}
-      {generateError && (
-        <div
-          style={{
-            background: "var(--danger-bg)",
-            border: "1px solid var(--danger-border)",
-            borderRadius: "2px",
-            padding: "10px 14px",
-            marginBottom: "16px",
-            fontSize: "0.8125rem",
-            color: "var(--danger-text)",
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-          }}
-        >
-          <AlertTriangle size={15} />
-          <span>{generateError}</span>
-        </div>
-      )}
-
-      {narrationError && (
-        <div
-          style={{
-            background: "var(--caution-bg)",
-            border: "1px solid var(--caution-border)",
-            borderRadius: "2px",
-            padding: "10px 14px",
-            marginBottom: "16px",
-            fontSize: "0.8125rem",
-            color: "var(--caution-text)",
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-          }}
-        >
-          <AlertOctagon size={15} />
-          <span>{narrationError}</span>
-        </div>
-      )}
-
-      {/* Summary Narrative */}
-      <div style={{ marginBottom: "22px" }}>
-        <p style={{ fontSize: "1.05rem", lineHeight: 1.6, color: "var(--text-main)" }}>
-          {brief.summary}
-        </p>
-      </div>
-
-      {/* Source-Linked Claims Section */}
-      <div style={{ marginBottom: "22px" }}>
-        <h4 style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--spruce-muted)", letterSpacing: "0.04em", marginBottom: "12px", textTransform: "uppercase" }}>
-          Source-Linked Observations & Claims
-        </h4>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-          {brief.claims.map((claim) => {
-            const isDisputed = claim.kind === "disputed";
-            return (
-              <div
-                key={claim.id}
-                style={{
-                  background: isDisputed ? "var(--caution-bg)" : "var(--cream-muted)",
-                  border: `1px solid ${isDisputed ? "var(--caution-border)" : "var(--cream-hairline)"}`,
-                  borderRadius: "2px",
-                  padding: "12px 16px",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "6px",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "8px 12px", flexWrap: "wrap" }}>
-                  <div style={{ display: "flex", alignItems: "baseline", gap: "8px", flexWrap: "wrap", flex: "1 1 240px", minWidth: 0 }}>
-                    <span
-                      className={`badge ${isDisputed ? "badge-caution" : "badge-blue"}`}
-                      style={{ fontSize: "0.6875rem", textTransform: "uppercase", padding: "1px 8px" }}
-                    >
-                      {claim.kind}
-                    </span>
-                    <span style={{ fontSize: "0.9375rem", color: "var(--text-main)" }}>
-                      {claim.text}
-                    </span>
-                  </div>
-
-                  {/* Clickable Source Chips */}
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
-                    <span style={{ fontSize: "0.6875rem", color: "var(--text-dim)" }}>Sources:</span>
-                    {claim.reportIds.map((rid) => (
-                      <button
-                        key={rid}
-                        type="button"
-                        onClick={() => onSelectReport(rid)}
-                        title={`View report ${getSourceLabel(rid)}`}
-                        aria-label={`View source report ${getSourceLabel(rid)}`}
-                        style={{
-                          background: "var(--spruce-main)",
-                          color: "var(--cream)",
-                          border: "none",
-                          borderRadius: "9999px",
-                          padding: "2px 8px",
-                          fontSize: "0.75rem",
-                          fontWeight: 600,
-                          cursor: "pointer",
-                        }}
-                      >
-                        {getSourceLabel(rid)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Disputed / Hearsay Context Note */}
-                {claim.note && (
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "6px",
-                      fontSize: "0.8125rem",
-                      color: isDisputed ? "var(--caution-text)" : "var(--text-muted)",
-                      fontStyle: "italic",
-                      marginTop: "2px",
-                    }}
-                  >
-                    <AlertTriangle size={13} />
-                    <span>{claim.note}</span>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Operational Highlights: Conflicts & Unknowns */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(min(260px, 100%), 1fr))",
-          gap: "16px",
-          marginBottom: "20px",
-        }}
-      >
-        {/* Conflicts Box */}
-        <div
-          style={{
-            background: "var(--caution-bg)",
-            border: "1px solid var(--caution-border)",
-            borderRadius: "2px",
-            padding: "14px 18px",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--caution-text)", marginBottom: "8px" }}>
-            <AlertOctagon size={16} />
-            <span style={{ fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}>
-              Conflicts & hearsay
-            </span>
-          </div>
-
-          {brief.conflicts.length === 0 ? (
-            <p style={{ fontSize: "0.875rem", color: "var(--caution-text)" }}>
-              {brief.claims.some((c) => c.kind === "disputed")
-                ? "No direct contradictions listed. Disputed claims are marked above."
-                : "No contradictions between reports are listed."}
-            </p>
-          ) : (
-            brief.conflicts.map((conflict, i) => (
-              <div key={i} style={{ fontSize: "0.875rem", color: "var(--caution-text)", lineHeight: 1.5 }}>
-                <p>{conflict.text}</p>
-                <div style={{ display: "flex", alignItems: "center", gap: "4px", marginTop: "6px", flexWrap: "wrap" }}>
-                  <span style={{ fontSize: "0.75rem", opacity: 0.8 }}>Reports referenced:</span>
-                  {conflict.reportIds.map((rid) => (
-                    <button
-                      key={rid}
-                      type="button"
-                      onClick={() => onSelectReport(rid)}
-                      aria-label={`View source report ${getSourceLabel(rid)}`}
-                      style={{
-                        background: "rgba(115, 74, 0, 0.2)",
-                        color: "var(--caution-text)",
-                        border: "none",
-                        borderRadius: "9999px",
-                        padding: "1px 6px",
-                        fontSize: "0.6875rem",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                      }}
-                    >
-                      {getSourceLabel(rid)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* Unknowns Box */}
-        <div
-          style={{
-            background: "var(--cream-muted)",
-            border: "1px solid var(--cream-hairline)",
-            borderRadius: "2px",
-            padding: "14px 18px",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--spruce-muted)", marginBottom: "8px" }}>
-            <HelpCircle size={16} />
-            <span style={{ fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}>
-              Still unknown
-            </span>
-          </div>
-
-          <ul style={{ margin: 0, paddingLeft: "18px", fontSize: "0.875rem", color: "var(--text-muted)", lineHeight: 1.6 }}>
-            {brief.unknowns.map((un, idx) => (
-              <li key={idx}>{un}</li>
-            ))}
-          </ul>
-        </div>
-      </div>
-
-      {/* Suggested Staging Needs */}
-      {brief.suggestedNeeds && brief.suggestedNeeds.length > 0 && (
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", fontSize: "0.8125rem", color: "var(--text-muted)" }}>
-          <span style={{ fontWeight: 600 }}>Suggested Staging Needs:</span>
-          {brief.suggestedNeeds.map((need, idx) => (
-            <span key={idx} className="badge badge-dark" style={{ background: "var(--cream-muted)", color: "var(--spruce-main)", border: "1px solid var(--cream-hairline)", whiteSpace: "normal" }}>
-              {need}
-            </span>
-          ))}
-        </div>
-      )}
+      {brief.conflicts.length > 0 && <div className="console-brief-section console-conflicts"><h4>Conflicts & hearsay</h4>{brief.conflicts.map((conflict, index) => <p key={index}>{conflict.text} {sources(conflict.reportIds)}</p>)}</div>}
+      {brief.unknowns.length > 0 && <div className="console-brief-section"><h4>Still unknown</h4><ul>{brief.unknowns.map((unknown, index) => <li key={index}>{unknown}</li>)}</ul></div>}
+      {brief.suggestedNeeds.length > 0 && <div className="console-brief-section"><h4>Staging needs</h4><p>{brief.suggestedNeeds.join(" · ")}</p></div>}
     </div>
-  );
+    <div className="console-brief-actions">
+      <button className="btn btn-sm btn-primary console-regenerate" onClick={handleGenerate} disabled={isGenerating} title="Regenerate from current reports with Gemini"><RotateCw size={13} className={isGenerating ? "spin" : ""} />{isGenerating ? "Regenerating…" : "Regenerate brief"}</button>
+    </div>
+  </div>;
 }

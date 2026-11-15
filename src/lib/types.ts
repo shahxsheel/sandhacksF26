@@ -6,8 +6,17 @@ export interface ReportScreening {
   status: "accepted" | "flagged" | "unscreened";
   reason: string;
 }
+/** Which staged scene an incident uses; selects its schematic map. */
+export type IncidentScene = "canyon-fire" | "street-flood" | "bluff-collapse";
+/** Set when Gemini chose this report's incident from an unrouted dispatch-intake submission. */
+export interface ReportRouting {
+  reason: string;
+}
 export interface Incident {
   id: string;
+  /** Short operator reference, e.g. "FL-0412". */
+  code: string;
+  scene: IncidentScene;
   title: string;
   category: string;
   address: string;
@@ -31,6 +40,20 @@ export interface WitnessReport {
   isSample?: boolean;
   transcriptionStatus?: "completed" | "failed" | "not_requested";
   screening?: ReportScreening;
+  routing?: ReportRouting;
+}
+/** One active incident in the coordinator's workspace (the incident queue). */
+export interface IncidentSummary {
+  id: string;
+  code: string;
+  scene: IncidentScene;
+  title: string;
+  category: string;
+  address: string;
+  status: Incident["status"];
+  reportedAt: string;
+  reportCount: number;
+  withheldCount: number;
 }
 export interface BriefClaim { id: string; text: string; reportIds: string[]; kind: ClaimKind; note?: string }
 export interface BriefConflict { text: string; reportIds: string[] }
@@ -76,5 +99,7 @@ export interface DemoState {
   access?: { witnessToken: string; volunteerToken: string };
   /** Coordinator only: reports withheld by screening, kept out of `reports`. */
   withheldReports?: WitnessReport[];
+  /** Coordinator only: every active incident in this workspace, in queue order (includes `incident`). */
+  incidents?: IncidentSummary[];
   viewerRole: "coordinator" | "witness" | "volunteer";
 }

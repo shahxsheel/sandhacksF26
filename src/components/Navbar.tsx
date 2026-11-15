@@ -87,14 +87,14 @@ export function Navbar({ state, ownerIncidentId, onRefresh, onReset, isRefreshin
           top: 0,
           zIndex: 50,
           height: "64px",
-          background: "var(--spruce-deep)",
-          borderBottom: "1px solid var(--spruce-hairline)",
+          background: "var(--cream)",
+          borderBottom: "1px solid var(--cream-hairline)",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           padding: "0 20px",
           gap: "12px",
-          color: "var(--cream)",
+          color: "var(--spruce-main)",
         }}
         className="fl-navbar"
       >
@@ -108,35 +108,24 @@ export function Navbar({ state, ownerIncidentId, onRefresh, onReset, isRefreshin
               alignItems: "center",
               gap: "10px",
               textDecoration: "none",
-              color: "var(--cream)",
+              color: "var(--spruce-main)",
             }}
           >
-            <svg width="28" height="28" viewBox="0 0 64 64" fill="none" style={{ flexShrink: 0 }}>
-              <rect width="64" height="64" rx="2" fill="#0b363b" />
-              <path d="M16 20h19v8H24v16h-8zM29 36h11V20h8v24H29z" fill="var(--accent-lime)" />
-            </svg>
-            <span
-              className="fl-navbar-wordmark"
-              style={{
-                fontSize: "1.125rem",
-                fontWeight: 600,
-                letterSpacing: "-0.02em",
-                color: "var(--cream)",
-              }}
-            >
-              firstlink
+            <img src="/brand-mark.svg" width="28" height="28" alt="" style={{ flexShrink: 0 }} />
+            <span className="fl-navbar-wordmark" style={{ fontSize: "1.125rem", fontWeight: 600, letterSpacing: "-0.03em", color: "#032125" }}>
+              First<span style={{ color: "#437278" }}>Link</span>
             </span>
           </Link>
 
-          {/* Simulation Badge */}
-          <div
+          {/* Shared views retain a simulation label; the console has its training status bar. */}
+          {pathname !== "/dashboard" && <div
             className="badge badge-sim-dark"
             title="Demonstration scenario with simulated responders. No real emergency connection."
             style={{ display: "flex", alignItems: "center", gap: "6px" }}
           >
             <span className="pulse-dot" />
             <span style={{ fontSize: "0.75rem", letterSpacing: "0.02em" }}>SIMULATION</span>
-          </div>
+          </div>}
         </div>
 
         {/* View Switcher / Navigation Tabs */}
@@ -151,12 +140,12 @@ export function Navbar({ state, ownerIncidentId, onRefresh, onReset, isRefreshin
           className="hide-mobile"
         >
           <Link
-            href="/dashboard"
+            href={incidentId ? `/dashboard?incident=${encodeURIComponent(incidentId)}` : "/dashboard"}
             className="btn btn-sm"
             style={{
-              background: pathname === "/dashboard" ? "var(--spruce-panel)" : "transparent",
-              color: pathname === "/dashboard" ? "var(--accent-lime)" : "var(--spruce-light)",
-              border: pathname === "/dashboard" ? "1px solid rgba(171, 255, 174, 0.3)" : "1px solid transparent",
+              background: pathname === "/dashboard" ? "var(--cream-muted)" : "transparent",
+              color: pathname === "/dashboard" ? "var(--spruce-main)" : "var(--spruce-muted)",
+              border: pathname === "/dashboard" ? "1px solid var(--cream-hairline-strong)" : "1px solid transparent",
             }}
           >
             Coordinator
@@ -165,9 +154,9 @@ export function Navbar({ state, ownerIncidentId, onRefresh, onReset, isRefreshin
             href={witnessUrl}
             className="btn btn-sm"
             style={{
-              background: pathname.startsWith("/report") ? "var(--spruce-panel)" : "transparent",
-              color: pathname.startsWith("/report") ? "var(--accent-lime)" : "var(--spruce-light)",
-              border: pathname.startsWith("/report") ? "1px solid rgba(171, 255, 174, 0.3)" : "1px solid transparent",
+              background: pathname.startsWith("/report") ? "var(--cream-muted)" : "transparent",
+              color: pathname.startsWith("/report") ? "var(--spruce-main)" : "var(--spruce-muted)",
+              border: pathname.startsWith("/report") ? "1px solid var(--cream-hairline-strong)" : "1px solid transparent",
             }}
           >
             Witness Form
@@ -176,9 +165,9 @@ export function Navbar({ state, ownerIncidentId, onRefresh, onReset, isRefreshin
             href={volunteerUrl}
             className="btn btn-sm"
             style={{
-              background: pathname.startsWith("/volunteer") ? "var(--spruce-panel)" : "transparent",
-              color: pathname.startsWith("/volunteer") ? "var(--accent-lime)" : "var(--spruce-light)",
-              border: pathname.startsWith("/volunteer") ? "1px solid rgba(171, 255, 174, 0.3)" : "1px solid transparent",
+              background: pathname.startsWith("/volunteer") ? "var(--cream-muted)" : "transparent",
+              color: pathname.startsWith("/volunteer") ? "var(--spruce-main)" : "var(--spruce-muted)",
+              border: pathname.startsWith("/volunteer") ? "1px solid var(--cream-hairline-strong)" : "1px solid transparent",
             }}
           >
             Volunteer View
@@ -192,7 +181,7 @@ export function Navbar({ state, ownerIncidentId, onRefresh, onReset, isRefreshin
             <button
               onClick={onRefresh}
               disabled={isRefreshing}
-              className="btn btn-sm btn-outline-light"
+              className="btn btn-sm btn-outline-dark"
               title="Fetch latest updates from session"
               aria-label="Refresh session"
             >
@@ -205,7 +194,7 @@ export function Navbar({ state, ownerIncidentId, onRefresh, onReset, isRefreshin
           <button
             ref={shareButtonRef}
             onClick={() => setShowShareModal(true)}
-            className="btn btn-sm btn-outline-light"
+            className="btn btn-sm btn-outline-dark"
             title="Share witness or volunteer links"
             aria-label="Share links"
             aria-haspopup="dialog"
@@ -218,13 +207,14 @@ export function Navbar({ state, ownerIncidentId, onRefresh, onReset, isRefreshin
           {onReset && (
             <button
               onClick={() => {
-                if (window.confirm("Reset this demonstration incident back to initial state?")) {
+                if (window.confirm("Reset all incidents and reports in this training workspace?")) {
                   onReset();
                 }
               }}
-              className="btn btn-sm btn-outline-light"
-              style={{ color: "var(--spruce-light)" }}
-              title="Reset demo data"
+              className="btn btn-sm btn-outline-dark"
+              style={{ color: "var(--spruce-muted)" }}
+              disabled={isRefreshing}
+              title="Reset training workspace"
               aria-label="Reset demo"
             >
               <RotateCcw size={14} />
@@ -377,8 +367,11 @@ export function Navbar({ state, ownerIncidentId, onRefresh, onReset, isRefreshin
       )}
 
       <style jsx global>{`
-        @media (max-width: 380px) {
-          .fl-navbar-wordmark { display: none; }
+        @media (max-width: 1100px) {
+          .fl-navbar nav.hide-mobile { display: none !important; }
+        }
+        @media (max-width: 420px) {
+          .fl-navbar-brand > .badge { display: none !important; }
         }
         @keyframes spin {
           from { transform: rotate(0deg); }

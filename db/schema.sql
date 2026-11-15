@@ -43,6 +43,14 @@ CREATE TABLE IF NOT EXISTS fl_incidents (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- Multi-incident workspaces: one session owns one incident per staged scene (canyon fire, street flood, bluff collapse).
+-- The original one-incident-per-session constraint is dropped; (session_id, scene) is unique instead.
+ALTER TABLE fl_incidents DROP CONSTRAINT IF EXISTS fl_incidents_session_id_key;
+
+ALTER TABLE fl_incidents ADD COLUMN IF NOT EXISTS scene text NOT NULL DEFAULT 'canyon-fire' CHECK (scene IN ('canyon-fire', 'street-flood', 'bluff-collapse'));
+
+CREATE UNIQUE INDEX IF NOT EXISTS fl_incidents_session_scene_idx ON fl_incidents (session_id, scene);
+
 CREATE TABLE IF NOT EXISTS fl_media (
   id uuid PRIMARY KEY,
   incident_id uuid NOT NULL REFERENCES fl_incidents (id) ON DELETE CASCADE,
@@ -77,6 +85,9 @@ CREATE TABLE IF NOT EXISTS fl_reports (
 ALTER TABLE fl_reports ADD COLUMN IF NOT EXISTS screening_status text CHECK (screening_status IN ('accepted', 'flagged', 'unscreened'));
 
 ALTER TABLE fl_reports ADD COLUMN IF NOT EXISTS screening_reason text;
+
+-- Set when Gemini routed an unrouted dispatch-intake report to this incident: its one-sentence reason.
+ALTER TABLE fl_reports ADD COLUMN IF NOT EXISTS routing_reason text;
 
 CREATE TABLE IF NOT EXISTS fl_volunteers (
   id uuid PRIMARY KEY,

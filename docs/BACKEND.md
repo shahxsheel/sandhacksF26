@@ -45,3 +45,9 @@ Expired workspaces (and their media directories and narration cache entries olde
 ## Tests
 
 `tests/backend` runs the real route handlers and schema against in-memory Postgres with mocked providers (see its README).
+
+## Multi-incident workspaces and dispatch-intake routing
+
+- A workspace (`fl_sessions` row) owns one `fl_incidents` row per staged scene (`scene` in `canyon-fire`, `street-flood`, `bluff-collapse`; unique per session). The original one-incident-per-session constraint was dropped. `resolveOwner` returns every incident in queue order and `authorize` accepts any of them for the owner cookie. Incident codes (`FL-####`) are derived from the incident id, so they need no column.
+- `POST /api/reports` with `route=auto` (owner only) calls Gemini once with the workspace's incidents (identified by scene) and the report (never the name). Output `{decision, incident: <scene>|"none", reason, routing_reason}`. `include` + scene stores the report on that incident with `routing_reason` and a "routed" timeline event; `none` or `exclude` stores it flagged on the submitting incident; failures store it unscreened and unrouted. Same USD 0.05 reservation and 16/hour rate bucket as screening (`fl_usage.kind = 'route'`).
+- Routing verdicts are cached in `fl_provider_cache` under `routing:` keys built from the scene-level prompt, so every workspace shares them.

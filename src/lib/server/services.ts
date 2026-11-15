@@ -2,7 +2,7 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import type { DemoState, ReportScreening, WitnessReport } from "../types";
+import type { DemoState, ReportRouting, ReportScreening, WitnessReport } from "../types";
 import { authorize, type Principal } from "./auth";
 import { budgetError, recordUsageDetail, releaseReservation, reserveBudget, takeRateSlot } from "./budget";
 import { BriefValidationError, buildBriefPrompt, buildRulesBrief, parseGeminiBrief, speechText } from "./brief-logic";
@@ -15,12 +15,24 @@ import {
   elevenLabsConfigured,
   geminiConfigured,
   generateBriefJson,
+  generateRoutingJson,
   generateScreeningJson,
   synthesizeSpeech,
   transcribeAudio,
   type BriefInput,
 } from "./providers";
-import { ScreeningValidationError, buildScreeningPrompt, parseScreening, screeningCacheKey, transcriptCacheKey, type ScreeningReport } from "./screening-logic";
+import {
+  ScreeningValidationError,
+  buildRoutingPrompt,
+  buildScreeningPrompt,
+  parseRouting,
+  parseScreening,
+  routingCacheKey,
+  screeningCacheKey,
+  transcriptCacheKey,
+  type RoutingVerdict,
+  type ScreeningReport,
+} from "./screening-logic";
 import {
   countReports,
   currentBrief,
@@ -31,6 +43,7 @@ import {
   loadState,
   readProviderCache,
   saveBrief,
+  workspaceIncidentFacts,
   writeProviderCache,
 } from "./store";
 
@@ -53,7 +66,7 @@ function formFile(form: FormData, key: string): File | null {
   return value instanceof File && value.size > 0 ? value : null;
 }
 
-export async function submitReport(request: Request): Promise<{ state: DemoState; report: WitnessReport }> {
+export async function submitReport(request: Request): Promise<{ state: DemoState; report: WitnessReport; routedIncidentId: string | null }> {
   const declared = Number(request.headers.get("content-length") ?? "");
   if (!Number.isFinite(declared) || declared <= 0) throw new ApiError(411, "The upload size is required.");
   if (declared > LIMITS.maxMultipartBytes) throw new ApiError(413, "That upload is too large. Photos and voice notes can each be up to 4 MB.");
@@ -74,6 +87,10 @@ export async function submitReport(request: Request): Promise<{ state: DemoState
     view: view.success && view.data === "witness" ? "witness" : undefined,
   });
 
+  // Dispatch intake: the coordinator submits an unrouted report and Gemini picks the incident. Owner only.
+  const autoRoute = formString(form, "route") === "auto";
+  if (autoRoute && !(principal.owner && principal.role === "coordinator")) throw new ApiError(403, "Only the coordinator can submit dispatch-intake reports.");
+
   if (formString(form, "consent") !== "true") throw new ApiError(400, "Please confirm consent before submitting.");
   const name = cleanText(formString(form, "name"));
   const location = cleanText(formString(form, "location"));
@@ -89,7 +106,7 @@ export async function submitReport(request: Request): Promise<{ state: DemoState
   if (!text && !photoFile && !audioFile) throw new ApiError(400, "Add a written description, a photo or a voice note.");
 
   if (!(await takeRateSlot(principal.sessionId, RATE_LIMITS.report))) throw budgetError("rate", "report submissions");
-  if ((await countReports(principal.incidentId)) >= LIMITS.maxReports) {
+  if (!autoRoute && (await countReports(principal.incidentId)) >= LIMITS.maxReports) {
     throw new ApiError(409, `This incident already has the maximum of ${LIMITS.maxReports} reports.`);
   }
 
@@ -143,19 +160,32 @@ export async function submitReport(request: Request): Promise<{ state: DemoState
     }
   }
 
-  const screening = await screenReport(principal, { location, text, transcript, hasPhoto: Boolean(photoBytes) }, photoBytes);
+  const screened = { location, text, transcript, hasPhoto: Boolean(photoBytes) };
+  let screening: ReportScreening;
+  let routing: ReportRouting | undefined;
+  let targetIncidentId = principal.incidentId;
+  if (autoRoute) {
+    const routed = await routeReport(principal, screened, photoBytes);
+    screening = routed.screening;
+    if (routed.incidentId) {
+      targetIncidentId = routed.incidentId;
+      routing = { reason: routed.routingReason };
+    }
+  } else {
+    screening = await screenReport(principal, screened, photoBytes);
+  }
 
   const reportText = text || transcript || (audioFile ? "Voice note submitted; transcription is unavailable." : "Photo shared without a written description.");
   const photoId: string | null = photoBytes ? randomUUID() : null;
   const written: string[] = [];
   try {
-    const photo = photoBytes && photoId ? { id: photoId, fileName: await saveMediaFile(principal.incidentId, photoId, "jpg", photoBytes), bytes: photoBytes.byteLength, mime: "image/jpeg" } : undefined;
+    const photo = photoBytes && photoId ? { id: photoId, fileName: await saveMediaFile(targetIncidentId, photoId, "jpg", photoBytes), bytes: photoBytes.byteLength, mime: "image/jpeg" } : undefined;
     if (photo) written.push(photo.fileName);
-    const audioMedia = audio && audioId ? { id: audioId, fileName: await saveMediaFile(principal.incidentId, audioId, audio.ext, audio.bytes), bytes: audio.bytes.byteLength, mime: audio.mime } : undefined;
+    const audioMedia = audio && audioId ? { id: audioId, fileName: await saveMediaFile(targetIncidentId, audioId, audio.ext, audio.bytes), bytes: audio.bytes.byteLength, mime: audio.mime } : undefined;
     if (audioMedia) written.push(audioMedia.fileName);
     const report = await insertReport({
       id: randomUUID(),
-      incidentId: principal.incidentId,
+      incidentId: targetIncidentId,
       name,
       location,
       text: reportText,
@@ -163,13 +193,14 @@ export async function submitReport(request: Request): Promise<{ state: DemoState
       transcriptionStatus,
       kind: audioMedia ? "voice" : photo ? "photo" : "text",
       screening,
+      routing,
       photo,
       audio: audioMedia,
     });
-    return { state: await stateFor(principal), report };
+    return { state: await stateFor(principal), report, routedIncidentId: routing ? targetIncidentId : null };
   } catch (error) {
-    await removeMediaFiles(principal.incidentId, written).catch(() => undefined);
-    await deleteMediaRows(principal.incidentId, [photoId, audioId].filter((v): v is string => Boolean(v))).catch(() => undefined);
+    await removeMediaFiles(targetIncidentId, written).catch(() => undefined);
+    await deleteMediaRows(targetIncidentId, [photoId, audioId].filter((v): v is string => Boolean(v))).catch(() => undefined);
     throw error;
   }
 }
@@ -218,6 +249,59 @@ async function screenReport(principal: Principal, report: ScreeningReport, photo
     if (error instanceof ScreeningValidationError) return unscreened("AI screening returned an unusable answer.");
     if (error instanceof ApiError && error.status === 404) throw error;
     return unscreened("AI screening did not respond.");
+  }
+}
+
+// ---------------------------------------------------------------- dispatch-intake routing
+
+/**
+ * One Gemini call that both screens an unrouted intake report and picks which active incident it belongs to. Same
+ * budget, rate limit and cache rules as screening. Any failure leaves the report unscreened on the incident it was
+ * submitted from, unrouted, so nothing is lost or silently misfiled.
+ */
+async function routeReport(principal: Principal, report: ScreeningReport, photoBytes: Buffer | null): Promise<{ screening: ReportScreening; incidentId: string | null; routingReason: string }> {
+  const unrouted = (reason: string) => ({ screening: { status: "unscreened" as const, reason }, incidentId: null, routingReason: "" });
+  const candidates = await workspaceIncidentFacts(principal.incidentId);
+  const scenes = candidates.map((c) => c.scene);
+  const resolve = (verdict: RoutingVerdict) => ({
+    screening: verdict.screening,
+    incidentId: verdict.scene ? (candidates.find((c) => c.scene === verdict.scene)?.id ?? null) : null,
+    routingReason: verdict.routingReason,
+  });
+  try {
+    const photo = photoBytes ? await geminiPhoto(photoBytes) : null;
+    const key = routingCacheKey(geminiModel(), candidates, report, photo);
+    const cached = await readProviderCache<RoutingVerdict>(key);
+    if (cached?.screening && (cached.scene === null || scenes.includes(cached.scene))) return resolve(cached);
+    if (!geminiConfigured()) return unrouted("AI screening is not configured on this server; the report was not routed.");
+
+    const reservation = await reserveBudget({
+      provider: PROVIDERS.gemini.provider,
+      kind: "route",
+      units: PROVIDERS.gemini.screenReserve,
+      sessionId: principal.sessionId,
+      incidentId: principal.incidentId,
+      limit: RATE_LIMITS.screen,
+    });
+    if (!reservation.ok) return unrouted(reservation.reason === "rate" ? "AI screening limit reached for this workspace." : "AI screening allowance is used up.");
+
+    const input: BriefInput = [{ type: "text", text: buildRoutingPrompt(candidates, report) }];
+    if (photo) input.push({ type: "text", text: "Photo attached to this report:" }, { type: "image", data: photo.toString("base64"), mime_type: "image/jpeg" });
+    let result;
+    try {
+      result = await generateRoutingJson(input, scenes);
+    } catch (error) {
+      if (error instanceof ProviderUnavailable) await releaseReservation(reservation.usageId);
+      return unrouted("AI routing did not respond; the report was not routed.");
+    }
+    await recordUsageDetail(reservation.usageId, { inputTokens: result.inputTokens, outputTokens: result.outputTokens }).catch(() => undefined);
+    const verdict = parseRouting(result.text, scenes);
+    await writeProviderCache(key, "screening", verdict).catch(() => undefined);
+    return resolve(verdict);
+  } catch (error) {
+    if (error instanceof ScreeningValidationError) return unrouted("AI routing returned an unusable answer; the report was not routed.");
+    if (error instanceof ApiError && error.status === 404) throw error;
+    return unrouted("AI routing did not respond; the report was not routed.");
   }
 }
 

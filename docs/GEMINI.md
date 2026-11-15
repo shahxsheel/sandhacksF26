@@ -33,3 +33,9 @@ The first attempt reached the API but returned `incomplete` with a 128-token out
 - [Latest models](https://aistudio.google.com/docs/latest-model.md)
 - [Interactions API](https://aistudio.google.com/docs/interactions-overview.md)
 - [Coding agent setup](https://aistudio.google.com/docs/coding-agents.md)
+
+## Quota status (2026-11-15)
+
+The API key belongs to Google Cloud project **248429451963** (`gen-lang-client-0190062955`). On 2026-11-15 the project's **prepaid Gemini credits ran out**: `generateContent` returned HTTP 402 "Your prepayment credits are depleted". After that, only the free-tier allowance of `gemini-4-hydrogen` (20 requests per day) still worked, and staged screening and routing used it up, so later calls returned HTTP 429. Other models (`gemini-3.8-flash`, `gemini-3.5-flash`) also return 402. `gemini-4-carbon` has no free-tier quota.
+
+While the credits are depleted, a report is kept and labelled **Not screened** (or not routed), and the AI brief returns its clear error. Cached screening and routing verdicts still apply, because they need no call. To restore live calls, add prepaid credits to project 248429451963 in AI Studio, keeping total spend under the USD 20 cap. Then run each new staged report once to cache it.

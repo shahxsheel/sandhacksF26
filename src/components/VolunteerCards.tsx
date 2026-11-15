@@ -2,386 +2,70 @@
 
 import React, { useState } from "react";
 import type { Volunteer, Assignment, DemoState } from "../lib/types";
-import { Users, UserCheck, Shield, Send, CheckCircle2, XCircle, Clock, AlertCircle } from "lucide-react";
 import { assignVolunteer, ApiError } from "./api";
 
 interface VolunteerCardsProps {
   volunteers: Volunteer[];
   assignments: Assignment[];
   incidentId: string;
+  stagingArea?: string;
   onStateUpdated: (state: DemoState) => void;
 }
 
-const PRESET_TASKS = [
-  "Bring campus supply kit to North Plaza staging point",
-  "Staff language support desk at North Plaza",
-  "Assist with staging check-in and roster at North Plaza",
-  "Provide hydration and basic logistics support at staging point",
-];
+export function VolunteerCards({ volunteers, assignments, incidentId, stagingArea = "designated staging point", onStateUpdated }: VolunteerCardsProps) {
+  const tasks = [
+    `Bring supply kit to ${stagingArea}`,
+    `Staff language support desk at ${stagingArea}`,
+    `Assist with check-in and roster at ${stagingArea}`,
+    `Provide hydration and logistics support at ${stagingArea}`,
+  ];
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [taskText, setTaskText] = useState(tasks[0]);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
-export function VolunteerCards({
-  volunteers,
-  assignments,
-  incidentId,
-  onStateUpdated,
-}: VolunteerCardsProps) {
-  const [selectedVolunteerId, setSelectedVolunteerId] = useState<string | null>(null);
-  const [taskText, setTaskText] = useState(PRESET_TASKS[0]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
-
-  const handleAssign = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedVolunteerId || !taskText.trim()) return;
-
-    setIsSubmitting(true);
-    setErrorMsg(null);
-    setSuccessMsg(null);
-
+  const handleAssign = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!selectedId || !taskText.trim()) return;
+    setSubmitting(true);
+    setError(null);
+    setSuccess(null);
     try {
-      const next = await assignVolunteer(incidentId, selectedVolunteerId, taskText.trim());
-      const vol = next.volunteers.find((v) => v.id === selectedVolunteerId);
-      setSuccessMsg(`${vol?.name || "Volunteer"} approved for the staging point. Simulation only: no message was sent; they respond from the volunteer link.`);
-      setSelectedVolunteerId(null);
+      const next = await assignVolunteer(incidentId, selectedId, taskText.trim());
+      setSuccess("Staging task approved · simulated assignment");
+      setSelectedId(null);
       onStateUpdated(next);
-    } catch (err: unknown) {
-      if (err instanceof ApiError) {
-        setErrorMsg(err.message);
-      } else {
-        setErrorMsg("Failed to assign volunteer. Ensure staging task is valid.");
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
+    } catch (err) { setError(err instanceof ApiError ? err.message : "Could not approve staging task. Try again."); }
+    finally { setSubmitting(false); }
   };
 
-  const getVolunteerName = (volId: string) => {
-    return volunteers.find((v) => v.id === volId)?.name || "Registered Volunteer";
-  };
-
-  return (
-    <div className="card-light fl-card-pad" style={{ marginBottom: "28px" }}>
-      {/* Header */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "18px",
-          paddingBottom: "14px",
-          borderBottom: "1px solid var(--cream-hairline)",
-          flexWrap: "wrap",
-          gap: "8px",
-        }}
-      >
-        <div>
-          <h3 style={{ fontSize: "1.15rem", color: "var(--spruce-main)", fontWeight: 600 }}>
-            Nearby Registered Volunteers
-          </h3>
-          <p style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginTop: "2px" }}>
-            Staging support only. Volunteers are tasked exclusively to the designated North Plaza staging area.
-          </p>
-        </div>
-        <span className="badge badge-green">
-          Staging point only
-        </span>
-      </div>
-
-      {errorMsg && (
-        <div
-          style={{
-            background: "var(--danger-bg)",
-            border: "1px solid var(--danger-border)",
-            borderRadius: "2px",
-            padding: "10px 14px",
-            marginBottom: "16px",
-            fontSize: "0.8125rem",
-            color: "var(--danger-text)",
-          }}
-        >
-          {errorMsg}
-        </div>
-      )}
-
-      {successMsg && (
-        <div
-          style={{
-            background: "var(--pale-green)",
-            border: "1px solid var(--pale-green-border)",
-            borderRadius: "2px",
-            padding: "10px 14px",
-            marginBottom: "16px",
-            fontSize: "0.8125rem",
-            color: "var(--pale-green-text)",
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-          }}
-        >
-          <CheckCircle2 size={15} />
-          <span>{successMsg}</span>
-        </div>
-      )}
-
-      {/* Grid of Volunteer Cards */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(min(260px, 100%), 1fr))",
-          gap: "14px",
-          marginBottom: "24px",
-        }}
-      >
-        {volunteers.map((vol) => {
-          const hasActiveAssignment = assignments.some(
-            (a) => a.volunteerId === vol.id && a.status !== "declined"
-          );
-          const isSelected = selectedVolunteerId === vol.id;
-
-          return (
-            <div
-              key={vol.id}
-              style={{
-                background: isSelected ? "var(--pale-green)" : "#ffffff",
-                border: isSelected ? "1px solid var(--pale-green-border)" : "1px solid var(--cream-hairline)",
-                borderRadius: "2px",
-                padding: "16px",
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "space-between",
-                gap: "12px",
-                boxShadow: isSelected ? "0 0 0 2px var(--accent-lime-glow)" : "none",
-              }}
-            >
-              <div>
-                {/* Avatar + Name + Distance */}
-                <div style={{ display: "flex", alignItems: "flex-start", gap: "12px", marginBottom: "8px" }}>
-                  <div
-                    style={{
-                      width: "40px",
-                      height: "40px",
-                      borderRadius: "50%",
-                      background: "var(--spruce-panel)",
-                      color: "var(--accent-lime)",
-                      fontWeight: 700,
-                      fontSize: "0.875rem",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
-                    }}
-                  >
-                    {vol.initials}
-                  </div>
-
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <span style={{ fontWeight: 600, fontSize: "0.9375rem", color: "var(--spruce-main)" }}>
-                        {vol.name}
-                      </span>
-                      <span style={{ fontSize: "0.75rem", color: "var(--text-dim)" }}>
-                        {vol.distanceMeters}m away
-                      </span>
-                    </div>
-                    <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                      {vol.role}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Bio */}
-                <p style={{ fontSize: "0.8125rem", color: "var(--text-muted)", lineHeight: 1.45, marginBottom: "8px" }}>
-                  {vol.bio}
-                </p>
-
-                {/* Skills tags */}
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
-                  {vol.skills.map((skill, sIdx) => (
-                    <span
-                      key={sIdx}
-                      style={{
-                        background: "var(--cream-muted)",
-                        color: "var(--spruce-muted)",
-                        padding: "1px 6px",
-                        borderRadius: "2px",
-                        fontSize: "0.6875rem",
-                        fontWeight: 500,
-                        border: "1px solid var(--cream-hairline)",
-                      }}
-                    >
-                      {skill}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Status and Action */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: "10px", borderTop: "1px solid var(--cream-hairline)" }}>
-                <div>
-                  {hasActiveAssignment ? (
-                    <span className="badge badge-blue" style={{ fontSize: "0.6875rem" }}>
-                      Assigned
-                    </span>
-                  ) : vol.available ? (
-                    <span className="badge badge-green" style={{ fontSize: "0.6875rem" }}>
-                      Available
-                    </span>
-                  ) : (
-                    <span className="badge badge-caution" style={{ fontSize: "0.6875rem" }}>
-                      Unavailable
-                    </span>
-                  )}
-                </div>
-
-                <button
-                  type="button"
-                  disabled={!vol.available || hasActiveAssignment}
-                  onClick={() => setSelectedVolunteerId(isSelected ? null : vol.id)}
-                  aria-expanded={isSelected}
-                  aria-label={isSelected ? `Cancel task for ${vol.name}` : `Assign a staging task to ${vol.name}`}
-                  className={`btn btn-sm ${isSelected ? "btn-dark" : "btn-outline-dark"}`}
-                  style={{ padding: "4px 12px", fontSize: "0.75rem" }}
-                >
-                  {isSelected ? "Cancel" : "Assign Task"}
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Task Assignment Form (Shown when volunteer selected) */}
-      {selectedVolunteerId && (
-        <form
-          onSubmit={handleAssign}
-          style={{
-            background: "var(--cream-muted)",
-            border: "1px solid var(--cream-hairline)",
-            borderRadius: "2px",
-            padding: "18px",
-            marginBottom: "24px",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
-            <Send size={15} color="var(--spruce-main)" />
-            <h4 style={{ fontSize: "0.9375rem", fontWeight: 600, color: "var(--spruce-main)" }}>
-              Approve {getVolunteerName(selectedVolunteerId)} for a staging task
-            </h4>
-          </div>
-
-          <div style={{ marginBottom: "12px" }}>
-            <label htmlFor="volunteer-task-preset" style={{ display: "block", fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-muted)", marginBottom: "4px" }}>
-              Staging task
-            </label>
-            <select
-              id="volunteer-task-preset"
-              value={PRESET_TASKS.includes(taskText) ? taskText : ""}
-              onChange={(e) => setTaskText(e.target.value)}
-              className="select"
-              style={{ marginBottom: "8px" }}
-            >
-              {!PRESET_TASKS.includes(taskText) && <option value="" disabled>Custom instruction below</option>}
-              {PRESET_TASKS.map((preset, pIdx) => (
-                <option key={pIdx} value={preset}>
-                  {preset}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div style={{ marginBottom: "14px" }}>
-            <label htmlFor="volunteer-task-text" style={{ display: "block", fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-muted)", marginBottom: "4px" }}>
-              Or edit the instruction (staging point support only)
-            </label>
-            <input
-              id="volunteer-task-text"
-              type="text"
-              maxLength={200}
-              value={taskText}
-              onChange={(e) => setTaskText(e.target.value)}
-              className="input"
-              placeholder="e.g. Bring extra first aid supplies to North Plaza staging point"
-              required
-            />
-          </div>
-
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
-            <button
-              type="button"
-              onClick={() => setSelectedVolunteerId(null)}
-              className="btn btn-sm btn-outline-dark"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting || !taskText.trim()}
-              className="btn btn-sm btn-primary"
-            >
-              {isSubmitting ? "Approving..." : "Approve for staging point"}
-            </button>
-          </div>
-        </form>
-      )}
-
-      {/* Active Assignments Table */}
-      {assignments.length > 0 && (
-        <div>
-          <h4 style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--spruce-muted)", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: "12px" }}>
-            Staging assignments ({assignments.length})
-          </h4>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            {assignments.map((asg) => (
-              <div
-                key={asg.id}
-                style={{
-                  background: "#ffffff",
-                  border: "1px solid var(--cream-hairline)",
-                  borderRadius: "2px",
-                  padding: "12px 16px",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                  gap: "10px",
-                }}
-              >
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <span style={{ fontWeight: 600, fontSize: "0.875rem", color: "var(--spruce-main)" }}>
-                      {getVolunteerName(asg.volunteerId)}
-                    </span>
-                    <span
-                      className={`badge ${
-                        asg.status === "accepted"
-                          ? "badge-green"
-                          : asg.status === "declined"
-                          ? "badge-danger"
-                          : "badge-blue"
-                      }`}
-                      style={{ fontSize: "0.6875rem", textTransform: "capitalize" }}
-                    >
-                      {asg.status === "accepted" && <CheckCircle2 size={11} />}
-                      {asg.status === "declined" && <XCircle size={11} />}
-                      {asg.status === "approved" && <Clock size={11} />}
-                      {asg.status === "approved" ? "Pending Volunteer Acceptance" : asg.status}
-                    </span>
-                  </div>
-                  <p style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginTop: "3px" }}>
-                    {asg.task}
-                  </p>
-                </div>
-
-                <div style={{ fontSize: "0.75rem", color: "var(--text-dim)" }}>
-                  Approved {new Date(asg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+  return <div className="console-volunteers">
+    <div className="console-section-heading"><h2>Volunteers</h2><span className="console-count">{volunteers.filter((volunteer) => volunteer.available && !assignments.some((assignment) => assignment.volunteerId === volunteer.id && assignment.status !== "declined")).length} available</span></div>
+    <div className="console-volunteer-content">
+      <span className="console-safety-chip" title={`Coordinator approval required. Destination: ${stagingArea}. No real dispatch.`}>Simulated · staging point only</span>
+      {error && <p className="console-inline-error" role="alert">{error}</p>}
+      {success && <p className="console-success" role="status">{success}</p>}
+      {!volunteers.length && <p className="console-empty">No registered volunteers.</p>}
+      {volunteers.map((volunteer) => {
+        const active = assignments.find((assignment) => assignment.volunteerId === volunteer.id && assignment.status !== "declined");
+        const selected = selectedId === volunteer.id;
+        return <div key={volunteer.id} className="console-volunteer-row">
+          <div className="console-volunteer-heading"><span className="console-initials" aria-hidden="true">{volunteer.initials}</span><div><strong>{volunteer.name}</strong><span>{volunteer.role}</span></div><span className="console-distance" title="Staged distance, not a travel time">{volunteer.distanceMeters}m</span></div>
+          <div className="console-volunteer-skills" title={volunteer.bio}>{volunteer.skills.join(" · ")}</div>
+          <div className="console-volunteer-actions"><span className="console-volunteer-status">{active ? active.status === "accepted" ? "Accepted" : "Awaiting acceptance" : volunteer.available ? "Available" : "Unavailable"}</span><button type="button" className="btn btn-sm btn-outline-dark" disabled={!volunteer.available || Boolean(active) || submitting} aria-expanded={selected} aria-label={selected ? `Cancel task for ${volunteer.name}` : `Assign a staging task to ${volunteer.name}`} onClick={() => { setSelectedId(selected ? null : volunteer.id); setTaskText(tasks[0]); setError(null); }}>{selected ? "Cancel" : "Assign task"}</button></div>
+        </div>;
+      })}
+      {selectedId && <form className="console-assignment-form" onSubmit={handleAssign}>
+        <h3>Approve {volunteers.find((volunteer) => volunteer.id === selectedId)?.name}</h3>
+        <p className="console-assignment-destination">Staging: {stagingArea}</p>
+        <label htmlFor="volunteer-task-preset">Staging task</label>
+        <select id="volunteer-task-preset" className="select" value={tasks.includes(taskText) ? taskText : ""} onChange={(event) => setTaskText(event.target.value)} disabled={submitting}>{!tasks.includes(taskText) && <option value="" disabled>Custom instruction</option>}{tasks.map((task) => <option key={task} value={task}>{task}</option>)}</select>
+        <label htmlFor="volunteer-task-text">Instruction · staging support only</label>
+        <textarea id="volunteer-task-text" className="textarea" value={taskText} onChange={(event) => setTaskText(event.target.value)} maxLength={200} required disabled={submitting} />
+        <button type="submit" className="btn btn-sm btn-primary" disabled={submitting || !taskText.trim()}>{submitting ? "Approving…" : "Approve for staging point"}</button>
+      </form>}
+      {assignments.length > 0 && <details className="console-assignments"><summary>Assignments ({assignments.length})</summary>{[...assignments].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).map((assignment) => <div key={assignment.id}><div className="console-assignment-heading"><strong>{volunteers.find((volunteer) => volunteer.id === assignment.volunteerId)?.name || "Volunteer"}</strong><span>{assignment.status === "approved" ? "Pending acceptance" : assignment.status}</span></div><p>{assignment.task}</p><time dateTime={assignment.createdAt}>{new Date(assignment.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time></div>)}</details>}
     </div>
-  );
+  </div>;
 }

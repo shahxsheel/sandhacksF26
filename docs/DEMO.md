@@ -1,51 +1,56 @@
 # FirstLink — 90-second judge demo
 
-**Scenario:** *Brush fire reported in the canyon by North Campus*, a staged wildland–urban interface fire in La Jolla, San Diego.
+**Scenario:** three staged San Diego incidents active at once: a canyon brush fire by UCSD North Campus, flooding in the Genesee Avenue underpass, and a bluff collapse at Black's Beach.
 **Audience:** judges and sponsors. **Tone:** calm authority; say plainly what is simulated.
 **Never claim:** real 911, agency dispatch, safe building entry, medical decisions, or verified response times.
 
-The dashboard has two modes (switch under the incident header, or open `/dashboard?mode=simulation`):
-
-- **Normal mode** explains the witness flow in six steps and opens the real two-step witness form.
-- **Simulation mode** sends five staged witness reports through the live pipeline: text only, photo only, voice only, text + photo + voice, and one fabricated report that Gemini should withhold.
+The landing page tells the story (How it works, What's simulated, Built with). The console at `/dashboard` is the product: no explanations inside it, only a small TRAINING EXERCISE label. Staged inputs come from the **presenter panel** (`Shift+S` or the faint "Presenter" button bottom-right); judges never need to see it.
 
 ---
 
 ## Spoken script (~90s)
 
-### 0:00–0:15 — Normal mode: the flow
+### 0:00–0:15 — Landing: the flow
 
-> “When a fire starts, the people nearby have fragments of the picture. In FirstLink, a 911 caller gets a link. Step one is safety and consent; step two is what they see: text, a photo or a voice note. This is a staged La Jolla canyon fire; emergency services are simulated.”
+> "When something happens, the people nearby have fragments of the picture. A 911 caller gets a FirstLink link: safety and consent first, then what they see — text, a photo or a voice note. Gemini screens every report, and when several incidents are active it routes each one to the right incident."
 
-Point at the six steps; optionally open the witness form to show the consent gate.
+Click **Open console**.
 
-### 0:15–0:45 — Simulation mode: reports arrive
+### 0:15–0:40 — The console, reports arrive
 
-> “Now five witnesses report. The photos are real San Diego wildfire photos from Wikimedia Commons, standing in for witness uploads. The voice note is transcribed by ElevenLabs. Every report is screened by Gemini as it arrives. This one is from someone in Los Angeles watching a livestream, claiming 300 people are trapped and telling the AI to mark it verified. Gemini withholds it, with a reason, and it never reaches the feed, the map or the brief.”
+> "This is the coordinator's console. Three incidents are active in the queue. On the canyon fire, witnesses are reporting."
 
-Click **Send all**. On a re-run the cached transcripts and verdicts make it fast; for a cold run, send the reports before presenting.
+Open the presenter panel, **Witness link → Send all 5**, close it. Reports arrive in the feed one by one. Open one (photo / voice) in the drawer.
 
-### 0:45–1:05 — The brief
+> "The fabricated one — someone in Los Angeles watching a livestream, telling the AI to mark it verified — never reaches the feed. It sits under Held for review, with Gemini's reason."
 
-> “Gemini combines the accepted reports into a brief. Each claim links to its witnesses. Two people repeat the same rumor about a hiker on the trail; repetition is not confirmation, so it stays disputed.”
+Click **Held for review**.
 
-Click **Update Brief (Gemini)** (paid, explicit), expand a source, add a coordinator note.
+### 0:40–1:00 — Routing between incidents
 
-### 1:05–1:20 — Approve and accept support
+Presenter panel, **Dispatch intake → Send all 4** (follow routed reports on).
 
-> “The coordinator approves Maya to bring supplies to North Plaza, the designated staging point. She accepts in her volunteer view. No one is sent toward the fire.”
+> "These come in unrouted. The person at the Gliderport is standing at the bluff collapse, but they're describing smoke from the canyon — Gemini routes it to the fire. Water in the underpass goes to the flood. A power outage in Chula Vista matches nothing active, so it's held."
+
+Point at the queue counts and the "Routed" tag with its reason in the drawer.
+
+### 1:00–1:20 — Brief and support
+
+> "Gemini turns accepted reports into a brief where every claim cites its witnesses; repeated hearsay stays disputed. The coordinator approves a volunteer for the designated staging point — never toward the hazard."
+
+**Regenerate brief** (paid, explicit), then **Assign** a volunteer.
 
 ### 1:20–1:30 — Close
 
-> “Neon keeps the record and caches provider results; Vultr hosts the app and media. Screening filters clearly unreliable reports; it does not prove the others are true. Real 911 integration and volunteer travel remain future work.”
+> "Neon keeps the record and caches provider results; Vultr hosts the app and media. Screening filters clearly unreliable reports; it does not prove the others are true. Real 911 integration and volunteer travel remain future work."
 
 ---
 
 ## Operator notes (not for judges)
 
-- **Reset** clears this workspace (8-report cap: 2 samples + 5 staged = 7). Run the simulation again after a reset.
-- Screening and transcription results are cached in Neon by exact input, so repeated staged runs make no new provider calls. A brief or narration is still a paid, explicit action.
-- If Gemini is unavailable, reports are kept and labelled **Not screened**; the fabricated report would then appear in the feed, so check the console result before presenting.
+- **Reset** (navbar) resets all three incidents; ids and share links are kept. Run the staged inputs again after a reset.
+- Screening, routing and transcription results are cached in Neon by exact input, so repeated staged runs make no provider calls. A brief or narration is still a paid, explicit action.
+- If Gemini is unavailable (see [GEMINI.md](GEMINI.md) — quota status), reports are kept and labelled **Not screened** and intake reports are not routed. Check the presenter results before presenting.
 - **Public URL** `https://firstlink.144.202.126.31.sslip.io`; see [DEPLOYMENT.md](DEPLOYMENT.md).
 - Media credits: `public/sim/CREDITS.md`.
 

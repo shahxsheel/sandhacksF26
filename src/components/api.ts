@@ -122,7 +122,7 @@ export async function respondAssignment(
   return data.state;
 }
 
-export async function submitReport(formData: FormData): Promise<{ state?: DemoState; report?: WitnessReport }> {
+export async function submitReport(formData: FormData): Promise<{ state?: DemoState; report?: WitnessReport; routedIncidentId?: string | null }> {
   const res = await fetch("/api/reports", {
     method: "POST",
     body: formData,

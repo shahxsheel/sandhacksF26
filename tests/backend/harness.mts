@@ -17,7 +17,7 @@ import * as mediaRoute from "../../src/app/api/media/[id]/route";
 import { containerFor, durationFromPackets } from "../../src/lib/server/media-parse";
 import { parseGeminiBrief, speechText, buildRulesBrief } from "../../src/lib/server/brief-logic";
 import { purgeExpired } from "../../src/lib/server/store";
-import { parseScreening, buildScreeningPrompt } from "../../src/lib/server/screening-logic";
+import { parseScreening, buildScreeningPrompt, parseRouting } from "../../src/lib/server/screening-logic";
 
 const HOST = "http://localhost:3000";
 class Jar { cookie = ""; }
@@ -72,7 +72,21 @@ assert.equal(state.reports.length, 2);
 assert.equal(state.volunteers.length, 4);
 assert.equal(state.events.length, 4);
 assert.equal(state.brief.mode, "sample");
-ok("GET /api/session creates seeded workspace + cookie");
+assert.deepEqual(state.incidents.map((i: any) => i.scene), ["canyon-fire", "street-flood", "bluff-collapse"]);
+assert.equal(state.incident.scene, "canyon-fire"); assert.match(state.incident.code, /^FL-\d{4}$/);
+assert.ok(state.incidents.every((i: any) => i.reportCount === 2 && i.withheldCount === 0));
+ok("GET /api/session creates seeded workspace with three incidents + cookie");
+const floodId: string = state.incidents[1].id; const bluffId: string = state.incidents[2].id;
+{
+  const fl = (await j(await call(sessionRoute.GET, "GET", `/api/session?incidentId=${floodId}`, { jar: A }))).state;
+  assert.equal(fl.incident.scene, "street-flood"); assert.equal(fl.reports.length, 2); assert.equal(fl.volunteers.length, 3);
+  assert.notEqual(fl.access.witnessToken, state.access.witnessToken);
+  const flWitness = (await j(await call(sessionRoute.GET, "GET", `/api/session?incidentId=${floodId}&access=${fl.access.witnessToken}&role=witness`))).state;
+  assert.equal(flWitness.incident.id, floodId); assert.equal(flWitness.incidents, undefined);
+  const wrong = await call(sessionRoute.GET, "GET", `/api/session?incidentId=${floodId}&access=${state.access.witnessToken}&role=witness`);
+  assert.equal(wrong.status, 404);
+}
+ok("owner cookie opens every incident in the workspace; witness tokens are per incident; queue hidden from shared roles");
 
 res = await call(sessionRoute.GET, "GET", "/api/session", { jar: A });
 const again = (await j(res)).state;
@@ -111,6 +125,8 @@ assert.notEqual(stateB.incident.id, incidentId);
 res = await call(notesRoute.POST, "POST", "/api/notes", { jar: B, json: { incidentId, text: "intrusion" } });
 assert.equal(res.status, 404);
 res = await call(sessionRoute.GET, "GET", `/api/session?incidentId=${incidentId}`, { jar: B });
+assert.equal(res.status, 404);
+res = await call(sessionRoute.GET, "GET", `/api/session?incidentId=${floodId}`, { jar: B });
 assert.equal(res.status, 404);
 ok("workspaces isolated: other session cannot read or mutate");
 
@@ -221,12 +237,12 @@ res = await call(reportsRoute.POST, "POST", "/api/reports", { form: mk({ ...base
 const audioRes = res.status; out = await j(res);
 if (audioRes === 200) { assert.equal(out.report.kind, "text"); assert.equal(out.report.transcriptionStatus, "failed"); assert.equal(calls.stt, 0); ok("voice note dropped safely when ffprobe unavailable (text kept)"); }
 else { assert.equal(audioRes, 400); ok("invalid audio rejected with 400"); }
-// cap: have W-01..03, photo (4), maybe voice (5); fill to 8
+// cap: have W-01..03, photo (4), maybe voice (5); fill to 12
 let count = (await j(await call(sessionRoute.GET, "GET", "/api/session", { jar: A }))).state.reports.length;
-while (count < 8) { res = await call(reportsRoute.POST, "POST", "/api/reports", { form: mk({ ...base }), jar: A }); assert.equal(res.status, 200); count++; }
+while (count < 12) { res = await call(reportsRoute.POST, "POST", "/api/reports", { form: mk({ ...base }), jar: A }); assert.equal(res.status, 200); count++; }
 res = await call(reportsRoute.POST, "POST", "/api/reports", { form: mk({ ...base }), jar: A });
-assert.equal(res.status, 409); assert.match((await j(res)).error, /maximum of 8/);
-ok("report cap of 8 enforced");
+assert.equal(res.status, 409); assert.match((await j(res)).error, /maximum of 12/);
+ok("report cap of 12 per incident enforced");
 
 // ---- brief
 state = (await j(await call(sessionRoute.GET, "GET", "/api/session", { jar: A }))).state;
@@ -303,9 +319,10 @@ res = await call(resetRoute.POST, "POST", "/api/session/reset", { jar: A, json: 
 assert.equal(res.status, 200); state = (await j(res)).state;
 assert.equal(state.incident.id, incidentId); assert.equal(state.reports.length, 2); assert.equal(state.assignments.length, 0); assert.equal(state.brief.notes.length, 0); assert.equal(state.brief.mode, "sample");
 assert.equal(state.access.witnessToken, witnessToken);
+assert.deepEqual(state.incidents.map((i: any) => i.id), [incidentId, floodId, bluffId]);
 assert.ok(!existsSync(`${process.env.DATA_DIR}/media/${incidentId}`));
 res = await call(sessionRoute.GET, "GET", `/api/session?incidentId=${stateB.incident.id}`, { jar: B }); assert.equal(res.status, 200);
-assert.equal((await pg.query("select count(*)::int n from fl_incidents")).rows[0].n, 3);
+assert.equal((await pg.query("select count(*)::int n from fl_incidents")).rows[0].n, 9);
 res = await call(resetRoute.POST, "POST", "/api/session/reset", { jar: anon, json: {} }); assert.equal(res.status, 404);
 ok("reset restores seed, removes media, keeps links, does not touch other workspaces");
 const keptLimits = await pg.query("select count(*)::int n from fl_rate_limits where session_id = (select session_id from fl_incidents where id=$1)", [incidentId]);
@@ -336,7 +353,7 @@ ok("one network cannot use up the global workspace allowance; existing owners un
 // ---- retention
 await pg.query("update fl_sessions set expires_at = now() - interval '1 hour' where id = (select session_id from fl_incidents where id=$1)", [stateB.incident.id]);
 await purgeExpired();
-assert.equal((await pg.query("select count(*)::int n from fl_incidents")).rows[0].n, 2);
+assert.equal((await pg.query("select count(*)::int n from fl_incidents")).rows[0].n, 6);
 assert.equal((await pg.query("select count(*)::int n from fl_reports where incident_id=$1", [stateB.incident.id])).rows[0].n, 0);
 ok("expired workspaces purged with cascade");
 
@@ -359,7 +376,7 @@ ok("expired workspaces purged with cascade");
   const flaggedId = out.report.id;
   assert.ok(!out.state.reports.some((r: any) => r.id === flaggedId), "flagged report must not be in the feed");
   assert.equal(out.state.withheldReports.length, 1); assert.equal(out.state.withheldReports[0].id, flaggedId);
-  assert.ok(out.state.events.some((e: any) => /withheld from the feed by Gemini screening/.test(e.text)));
+  assert.ok(out.state.events.some((e: any) => /held for review by Gemini screening/.test(e.text)));
   // identical report: cached verdict, no new provider call or reservation
   const screenRows = (await pg.query("select count(*)::int n from fl_usage where kind='screen'")).rows[0].n;
   res = await call(reportsRoute.POST, "POST", "/api/reports", { form: mk(fake), jar: C });
@@ -385,6 +402,67 @@ ok("expired workspaces purged with cascade");
   assert.equal(res.status, 200);
   assert.ok(!JSON.stringify(calls.lastGeminiInput).includes(flaggedId), "flagged report must not be sent to the brief");
   ok("Gemini screening withholds flagged reports from feed and brief, caches verdicts, labels failures unscreened");
+}
+// ---- dispatch-intake routing across the workspace's incidents
+{
+  await pg.query("update fl_budgets set reserved = 0 where provider = 'gemini'");
+  const R = new Jar();
+  const sr = (await j(await call(sessionRoute.GET, "GET", "/api/session", { jar: R }))).state;
+  const [fireR, floodR, bluffR] = sr.incidents.map((i: any) => i.id);
+  mock.routeResponder = (input) => {
+    const t = String(input[0].text).split("REPORT: ")[1];
+    if (t.includes("Chula Vista")) return JSON.stringify({ decision: "include", incident: "none", reason: "Plausible first-hand report.", routing_reason: "A power outage in Chula Vista matches none of the active incidents." });
+    if (t.includes("underpass")) return JSON.stringify({ decision: "include", incident: "street-flood", reason: "First-hand view.", routing_reason: "Describes water over the road in the underpass." });
+    return JSON.stringify({ decision: "include", incident: "canyon-fire", reason: "First-hand view.", routing_reason: "Smoke plume over the canyon toward campus." });
+  };
+  const intake = (fields: Record<string, string>) => mk({ incidentId: bluffR, consent: "true", route: "auto", name: "Riley Kim", ...fields });
+  // submitted while viewing the bluff incident, routed to the flood incident
+  const before = calls.route;
+  res = await call(reportsRoute.POST, "POST", "/api/reports", { form: intake({ location: "Genesee sidewalk", text: "Water over the curb in the underpass." }, ), jar: R });
+  assert.equal(res.status, 200); out = await j(res);
+  assert.equal(out.routedIncidentId, floodR); assert.equal(out.report.screening.status, "accepted"); assert.match(out.report.routing.reason, /underpass/);
+  assert.equal(out.state.incident.id, bluffR, "response state stays on the incident being viewed");
+  assert.equal(out.state.incidents.find((i: any) => i.id === floodR).reportCount, 3);
+  assert.ok(!JSON.stringify(calls.lastRouteInput).includes("Riley Kim"), "names must not be sent to Gemini routing");
+  assert.ok(!JSON.stringify(calls.lastRouteInput).includes(floodR), "incidents are identified by scene, not workspace ids");
+  const fl = (await j(await call(sessionRoute.GET, "GET", `/api/session?incidentId=${floodR}`, { jar: R }))).state;
+  const routed = fl.reports.find((r: any) => r.id === out.report.id); assert.ok(routed); assert.match(routed.routing.reason, /underpass/);
+  assert.ok(fl.events.some((e: any) => /routed a dispatch-intake report/.test(e.text)));
+  // located at the clifftop but describing the fire: routed by content
+  res = await call(reportsRoute.POST, "POST", "/api/reports", { form: intake({ location: "Gliderport parking lot", text: "Smoke plume over the canyon toward campus." }), jar: R });
+  out = await j(res); assert.equal(out.routedIncidentId, fireR);
+  // matches nothing: held on the incident it was submitted from, not routed
+  res = await call(reportsRoute.POST, "POST", "/api/reports", { form: intake({ location: "Third Avenue, Chula Vista", text: "Traffic lights out." }), jar: R });
+  out = await j(res); assert.equal(out.routedIncidentId, null); assert.equal(out.report.screening.status, "flagged"); assert.match(out.report.screening.reason, /Matches no active incident/);
+  assert.ok(out.state.withheldReports.some((r: any) => r.id === out.report.id));
+  // identical intake report across a different workspace reuses the cached verdict (keyed by scene, not ids)
+  const R2 = new Jar();
+  const s2 = (await j(await call(sessionRoute.GET, "GET", "/api/session", { jar: R2 }))).state;
+  const callsNow = calls.route;
+  res = await call(reportsRoute.POST, "POST", "/api/reports", { form: mk({ incidentId: s2.incidents[2].id, consent: "true", route: "auto", name: "Riley Kim", location: "Genesee sidewalk", text: "Water over the curb in the underpass." }), jar: R2 });
+  out = await j(res); assert.equal(out.routedIncidentId, s2.incidents[1].id); assert.equal(calls.route, callsNow);
+  assert.equal(calls.route, before + 3);
+  // routing failure: unscreened and unrouted, kept on the submitting incident
+  mock.routeResponder = () => JSON.stringify({ decision: "include", incident: "volcano", reason: "x", routing_reason: "y" });
+  res = await call(reportsRoute.POST, "POST", "/api/reports", { form: intake({ location: "Somewhere", text: "Something odd." }), jar: R });
+  out = await j(res); assert.equal(out.routedIncidentId, null); assert.equal(out.report.screening.status, "unscreened");
+  assert.ok(out.state.reports.some((r: any) => r.id === out.report.id));
+  // witness tokens cannot use the intake line
+  res = await call(reportsRoute.POST, "POST", "/api/reports", { form: mk({ incidentId: fireR, consent: "true", route: "auto", name: "X", location: "Y", text: "Z", access: sr.access.witnessToken }) });
+  assert.equal(res.status, 403);
+  ok("dispatch intake: Gemini routes by content across incidents, holds unmatched reports, caches by scene, owner only");
+}
+assert.equal(parseRouting('{"decision":"include","incident":"none","reason":"a","routing_reason":"b"}', ["canyon-fire"]).screening.status, "flagged");
+assert.equal(parseRouting('{"decision":"exclude","incident":"canyon-fire","reason":"a","routing_reason":"b"}', ["canyon-fire"]).scene, null);
+assert.throws(() => parseRouting('{"decision":"include","incident":"x","reason":"a","routing_reason":"b"}', ["canyon-fire"]));
+// legacy single-incident workspace gets its missing scenes on the next owner load
+{
+  const L = new Jar();
+  const sl = (await j(await call(sessionRoute.GET, "GET", "/api/session", { jar: L }))).state;
+  await pg.query("delete from fl_incidents where id = any($1::uuid[])", [[sl.incidents[1].id, sl.incidents[2].id]]);
+  const again2 = (await j(await call(sessionRoute.GET, "GET", "/api/session", { jar: L }))).state;
+  assert.equal(again2.incident.id, sl.incident.id); assert.equal(again2.incidents.length, 3);
+  ok("legacy one-incident workspaces are topped up to all three scenes");
 }
 assert.equal(parseScreening('{"decision":"exclude","reason":"Off-site."}').status, "flagged");
 assert.throws(() => parseScreening('{"decision":"maybe","reason":"x"}'));

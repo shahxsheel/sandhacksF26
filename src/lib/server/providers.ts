@@ -8,7 +8,7 @@ import { GoogleGenAI } from "@google/genai";
 import { ELEVENLABS, LIMITS, dataDir, geminiModel, narrationVoiceId } from "./config";
 import { ApiError } from "./http";
 import { BRIEF_JSON_SCHEMA, BRIEF_SYSTEM_INSTRUCTION } from "./brief-logic";
-import { SCREENING_JSON_SCHEMA, SCREENING_SYSTEM_INSTRUCTION } from "./screening-logic";
+import { ROUTING_SYSTEM_INSTRUCTION, SCREENING_JSON_SCHEMA, SCREENING_SYSTEM_INSTRUCTION, routingJsonSchema } from "./screening-logic";
 
 /** Thrown when a provider is not configured; callers release their budget reservation because nothing was sent. */
 export class ProviderUnavailable extends Error {}
@@ -97,6 +97,20 @@ export function generateScreeningJson(input: BriefInput): Promise<GeminiBriefRes
     label: "screening",
     incomplete: "Screening did not complete.",
     failed: "Screening is unavailable.",
+  });
+}
+
+/** Screen and route one dispatch-intake report across the active incidents (identified by scene). */
+export function generateRoutingJson(input: BriefInput, scenes: readonly string[]): Promise<GeminiBriefResult> {
+  return geminiJson({
+    input,
+    systemInstruction: ROUTING_SYSTEM_INSTRUCTION,
+    schema: routingJsonSchema(scenes),
+    maxOutputTokens: 700,
+    timeoutMs: 30_000,
+    label: "routing",
+    incomplete: "Routing did not complete.",
+    failed: "Routing is unavailable.",
   });
 }
 

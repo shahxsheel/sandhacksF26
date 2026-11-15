@@ -51,9 +51,16 @@ export function sessionCookie(secret: string, request: Request): string {
 
 export interface Owner {
   sessionId: string;
+  /** First incident in queue order (the default one a fresh dashboard shows). */
   incidentId: string;
+  /** Every incident this workspace owns, in queue order. */
+  incidentIds: string[];
+  /** Scenes already present, aligned with incidentIds. */
+  scenes: string[];
   secret: string;
 }
+
+const SCENE_ORDER = ["canyon-fire", "street-flood", "bluff-collapse"];
 
 /** Resolve the browser's workspace from its cookie. Slides the expiry at most once an hour. */
 export async function resolveOwner(request: Request): Promise<Owner | null> {
@@ -62,17 +69,20 @@ export async function resolveOwner(request: Request): Promise<Owner | null> {
   const sql = getDatabase();
   const rows = await sql`
     WITH s AS (
-      SELECT s.id AS session_id, i.id AS incident_id, s.last_seen_at
+      SELECT s.id AS session_id, i.id AS incident_id, i.scene, s.last_seen_at
       FROM fl_sessions s JOIN fl_incidents i ON i.session_id = s.id
       WHERE s.secret_hash = ${sha256(secret)} AND s.expires_at > now()
+      LIMIT 5
     ), touched AS (
       UPDATE fl_sessions SET last_seen_at = now(), expires_at = now() + make_interval(days => ${LIMITS.sessionTtlDays}::int)
       WHERE id IN (SELECT session_id FROM s WHERE last_seen_at < now() - interval '1 hour')
       RETURNING id
     )
-    SELECT session_id, incident_id FROM s`;
-  const row = rows[0];
-  return row ? { sessionId: String(row.session_id), incidentId: String(row.incident_id), secret } : null;
+    SELECT session_id, incident_id, scene FROM s`;
+  if (rows.length === 0) return null;
+  const sorted = [...rows].sort((a, b) => SCENE_ORDER.indexOf(String(a.scene)) - SCENE_ORDER.indexOf(String(b.scene)));
+  const incidentIds = sorted.map((r) => String(r.incident_id));
+  return { sessionId: String(sorted[0].session_id), incidentId: incidentIds[0], incidentIds, scenes: sorted.map((r) => String(r.scene)), secret };
 }
 
 /**
@@ -86,10 +96,10 @@ export async function authorize(
 ): Promise<Principal> {
   if (!isUuid(incidentId)) throw new ApiError(404, "Workspace not found or the access link is not valid.");
   const owner = await resolveOwner(request);
-  if (owner && owner.incidentId === incidentId.toLowerCase()) {
+  if (owner && owner.incidentIds.includes(incidentId.toLowerCase())) {
     const role: ViewerRole = options.view ?? "coordinator";
     if (!options.allow.includes(role)) throw new ApiError(403, "This action is not available from here.");
-    return { role, owner: true, incidentId: owner.incidentId, sessionId: owner.sessionId, secret: owner.secret };
+    return { role, owner: true, incidentId: incidentId.toLowerCase(), sessionId: owner.sessionId, secret: owner.secret };
   }
   if (options.access) {
     const hash = sha256(options.access);

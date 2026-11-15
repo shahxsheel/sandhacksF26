@@ -236,8 +236,9 @@ test.describe("UI — readable headings without horizontal overflow", () => {
   test("dashboard incident workspace heading is readable", async ({ page }) => {
     await openOwnerSession(page.request);
     await page.goto("/dashboard");
-    await assertMainHeadingReadable(page);
-    await expect(page.getByText(/staged|simulation/i).first()).toBeVisible();
+    // The console uses a compact operator heading rather than the landing page's display size.
+    await assertMainHeadingReadable(page, 18);
+    await expect(page.getByText("TRAINING EXERCISE", { exact: true })).toBeVisible();
   });
 
   test("witness report form uses contract fields and readable heading", async ({ page }) => {
@@ -318,6 +319,10 @@ test.describe("UI — review regressions", () => {
       const clipped = await page.locator("header button, main button").evaluateAll((buttons) => buttons.filter((button) => {
         const box = button.getBoundingClientRect();
         if (!box.width || !box.height) return false;
+        // Controls inside a deliberate horizontal scroller (incident queue, panel tabs) may extend past the edge.
+        for (let el = button.parentElement; el; el = el.parentElement) {
+          if (/(auto|scroll)/.test(getComputedStyle(el).overflowX)) return false;
+        }
         const panel = button.closest(".card-light")?.getBoundingClientRect();
         return box.left < -1 || box.right > window.innerWidth + 1 || Boolean(panel && box.right > panel.right + 1);
       }).map((button) => button.textContent));
@@ -366,62 +371,74 @@ test.describe("UI — review regressions", () => {
     }
   });
 
-  test("dashboard shows the brief before the scene map and has no hidden horizontal overflow", async ({ page }) => {
-    await openOwnerSession(page.request);
+  test("console shows the incident queue, map and brief, and opens a report by keyboard without overflow", async ({ page }) => {
+    const owner = await openOwnerSession(page.request);
     await page.goto("/dashboard");
-    const brief = page.getByText("SHARED INCIDENT BRIEF");
-    await expect(brief).toBeVisible();
-    const briefTop = (await brief.boundingBox())!.y;
-    const mapTop = (await page.getByText("SCENE SCHEMATIC").boundingBox())!.y;
-    expect(briefTop).toBeLessThan(mapTop);
+    await expect(page.getByRole("heading", { level: 1, name: owner.incident.title })).toBeVisible();
+    const queue = page.locator(".console-desktop-queue:visible, .console-mobile-queue:visible").first();
+    await expect(queue.getByRole("button")).toHaveCount(3);
     // html hides x-overflow, so check the body's real content width too.
     expect(await page.evaluate(() => document.body.scrollWidth <= window.innerWidth + 2)).toBeTruthy();
-    await page.getByRole("button", { name: /^show report W-01/i }).focus();
+    await page.getByRole("button", { name: /^Open W-01/ }).focus();
     await page.keyboard.press("Enter");
-    await expect(page.getByRole("button", { name: /collapse report W-01/i })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Report W-01" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog", { name: "Report W-01" })).toBeHidden();
+  });
+
+  test("selecting another incident loads it and keeps it in the URL", async ({ page }) => {
+    await openOwnerSession(page.request);
+    await page.goto("/dashboard");
+    const queue = page.locator(".console-desktop-queue:visible, .console-mobile-queue:visible").first();
+    await queue.getByRole("button", { name: /Flooding reported in the Genesee Avenue underpass/ }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Flooding reported in the Genesee Avenue underpass" })).toBeVisible();
+    await expect(page).toHaveURL(/incident=[0-9a-f-]{36}/);
+    await page.reload();
+    await expect(page.getByRole("heading", { level: 1, name: "Flooding reported in the Genesee Avenue underpass" })).toBeVisible();
   });
 });
 
 test.describe("UI — landing navigation contract", () => {
-  test("primary Open demo path reaches the coordinator dashboard", async ({ page }) => {
+  test("primary Open console path reaches the coordinator dashboard", async ({ page }) => {
     await page.goto("/");
-    const openDemo = page.getByRole("link", { name: /open demo/i });
+    const openDemo = page.getByRole("link", { name: /open console/i }).first();
     await expect(openDemo).toBeVisible();
     await openDemo.click();
     await expect(page).toHaveURL(/\/dashboard/);
-    await assertMainHeadingReadable(page);
+    await assertMainHeadingReadable(page, 18);
   });
 });
 
-test.describe("UI — normal and simulation modes", () => {
-  test("normal mode explains the witness flow; simulation mode lists five staged reports with credits", async ({ page }) => {
-    await page.goto("/dashboard");
-    await expect(page.getByRole("heading", { name: "How a witness report reaches the coordinator" })).toBeVisible();
-    await expect(page.locator(".flow-step")).toHaveCount(6);
-    await expect(page.getByRole("link", { name: /Open witness form/ })).toHaveAttribute("href", /^\/report\/[0-9a-f-]{36}$/);
-
-    await page.getByRole("radio", { name: "Simulation mode" }).click();
-    await expect(page).toHaveURL(/mode=simulation/);
-    await expect(page.getByRole("radio", { name: "Simulation mode" })).toHaveAttribute("aria-checked", "true");
-    await expect(page.locator(".sim-card")).toHaveCount(5);
-    for (const label of ["Text only", "Photo only", "Voice only", "Text, photo and voice", "Fabricated report"]) {
-      await expect(page.getByRole("heading", { name: label, exact: true })).toBeVisible();
+test.describe("UI — presenter controls and explainer", () => {
+  test("landing explains the six-step witness flow", async ({ page }) => {
+    await page.goto("/");
+    for (const title of ["911 call is logged", "Safety & consent", "Observation", "Gemini screening", "Shared brief", "Approved support"]) {
+      await expect(page.getByText(title, { exact: true }).first()).toBeVisible();
     }
-    await expect(page.getByText("Should be withheld")).toHaveCount(1);
-    await expect(page.getByText(/Wikimedia Commons, not pictures of this staged incident/)).toBeVisible();
-    await expect(page.getByText(/Cal Fire San Diego · public domain/)).toBeVisible();
-    await expect(page.getByText("Withheld by Gemini screening (0)")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Send all 5" })).toBeEnabled();
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-    expect(overflow).toBeLessThanOrEqual(0);
+  });
 
-    // The chosen mode survives a reload for this viewer.
+  test("presenter panel is hidden from the console and lists witness-link and intake inputs with credits", async ({ page }) => {
+    await openOwnerSession(page.request);
     await page.goto("/dashboard");
-    await expect(page.locator(".sim-card")).toHaveCount(5);
+    await expect(page.getByText("TRAINING EXERCISE", { exact: true })).toBeVisible();
+    const panel = page.getByRole("complementary", { name: "Presenter controls" });
+    await expect(panel).toBeHidden();
+    await page.getByRole("button", { name: "Open presenter controls" }).click();
+    await expect(panel).toBeVisible();
+    await expect(panel.locator(".pp-row")).toHaveCount(9);
+    for (const label of ["Text only", "Photo only", "Voice only", "Text, photo and voice", "Fabricated report", "Water in the underpass", "Smoke seen from the clifftop", "Cliff came down on the beach", "Unrelated outage"]) {
+      await expect(panel.getByText(label, { exact: true })).toBeVisible();
+    }
+    await expect(panel.getByText("Should route → Canyon fire")).toBeVisible();
+    await expect(panel.getByRole("link", { name: "Credits" })).toHaveAttribute("href", "/sim/CREDITS.md");
+    await expect(panel.getByRole("button", { name: "Send all 5" })).toBeEnabled();
+    await expect(panel.getByRole("button", { name: "Send all 4" })).toBeEnabled();
+    await page.keyboard.press("Escape");
+    await expect(panel).toBeHidden();
   });
 
   test("staged simulation media is served for upload", async ({ request }) => {
-    for (const path of ["/sim/lilac-fire-road.jpg", "/sim/witch-creek-ridge.jpg", "/sim/sd-skyline-smoke.jpg", "/sim/voice-parking-deck.mp3", "/sim/voice-canyon-rim.mp3"]) {
+    for (const path of ["/sim/lilac-fire-road.jpg", "/sim/witch-creek-ridge.jpg", "/sim/sd-skyline-smoke.jpg", "/sim/flood-street.jpg", "/sim/bluff-collapse.jpg", "/sim/voice-parking-deck.mp3", "/sim/voice-canyon-rim.mp3"]) {
       const res = await request.get(path);
       expect(res.ok(), path).toBeTruthy();
       expect((await res.body()).byteLength).toBeGreaterThan(10_000);

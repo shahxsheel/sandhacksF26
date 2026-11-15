@@ -1,8 +1,8 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import { createDemoSeed } from "../demo-seed";
-import type { Assignment, CoordinatorNote, DemoState, Incident, ReportScreening, TimelineEvent, Volunteer, WitnessReport } from "../types";
+import { SCENES, createSceneSeed, incidentCode } from "../demo-seed";
+import type { Assignment, CoordinatorNote, DemoState, Incident, IncidentScene, IncidentSummary, ReportRouting, ReportScreening, TimelineEvent, Volunteer, WitnessReport } from "../types";
 import { deriveToken, newSessionSecret, sha256 } from "./auth";
 import type { BriefCore } from "./brief-logic";
 import { LIMITS } from "./config";
@@ -26,6 +26,8 @@ function tokens(secret: string, incidentId: string): { witnessToken: string; vol
 function mapIncident(row: Row): Incident {
   return {
     id: String(row.id),
+    code: incidentCode(String(row.id)),
+    scene: row.scene ?? "canyon-fire",
     title: row.title,
     category: row.category,
     address: row.address,
@@ -53,6 +55,7 @@ function mapReport(row: Row): WitnessReport {
   if (row.is_sample) report.isSample = true;
   if (row.transcription_status) report.transcriptionStatus = row.transcription_status;
   if (row.screening_status) report.screening = { status: row.screening_status, reason: row.screening_reason ?? "" };
+  if (row.routing_reason) report.routing = { reason: row.routing_reason };
   return report;
 }
 
@@ -75,6 +78,21 @@ const mapAssignment = (row: Row): Assignment => {
   return a;
 };
 
+const sceneRank = (scene: unknown): number => SCENES.indexOf(scene as IncidentScene);
+
+const mapSummary = (row: Row): IncidentSummary => ({
+  id: String(row.id),
+  code: incidentCode(String(row.id)),
+  scene: row.scene,
+  title: row.title,
+  category: row.category,
+  address: row.address,
+  status: row.status,
+  reportedAt: iso(row.reported_at),
+  reportCount: num(row.report_count),
+  withheldCount: num(row.withheld_count),
+});
+
 const mapEvent = (row: Row): TimelineEvent => ({ id: String(row.id), text: row.text, type: row.type, createdAt: iso(row.created_at) });
 const mapNote = (row: Row): CoordinatorNote => ({ id: String(row.id), text: row.text, createdAt: iso(row.created_at) });
 
@@ -87,7 +105,7 @@ const mapNote = (row: Row): CoordinatorNote => ({ id: String(row.id), text: row.
  */
 export async function loadState(incidentId: string, viewer: Viewer, secret?: string): Promise<DemoState> {
   const sql = getDatabase();
-  const [incident, reports, volunteers, assignments, events, notes] = await sql.transaction(
+  const [incident, reports, volunteers, assignments, events, notes, queue] = await sql.transaction(
     [
       sql`SELECT * FROM fl_incidents WHERE id = ${incidentId}::uuid`,
       sql`SELECT * FROM fl_reports WHERE incident_id = ${incidentId}::uuid ORDER BY seq LIMIT ${LIMITS.maxReports}::int`,
@@ -95,6 +113,12 @@ export async function loadState(incidentId: string, viewer: Viewer, secret?: str
       sql`SELECT * FROM fl_assignments WHERE incident_id = ${incidentId}::uuid ORDER BY created_at, id LIMIT ${LIMITS.maxAssignments}::int`,
       sql`SELECT id, text, type, created_at FROM (SELECT n, id, text, type, created_at FROM fl_events WHERE incident_id = ${incidentId}::uuid ORDER BY n DESC LIMIT ${LIMITS.maxEventsReturned}::int) e ORDER BY n`,
       sql`SELECT id, text, created_at FROM fl_notes WHERE incident_id = ${incidentId}::uuid ORDER BY created_at, id LIMIT ${LIMITS.maxNotes}::int`,
+      viewer === "coordinator"
+        ? sql`SELECT i.id, i.scene, i.title, i.category, i.address, i.status, i.reported_at,
+                 (SELECT count(*) FROM fl_reports r WHERE r.incident_id = i.id AND r.screening_status IS DISTINCT FROM 'flagged')::int AS report_count,
+                 (SELECT count(*) FROM fl_reports r WHERE r.incident_id = i.id AND r.screening_status = 'flagged')::int AS withheld_count
+              FROM fl_incidents i WHERE i.session_id = (SELECT session_id FROM fl_incidents WHERE id = ${incidentId}::uuid) LIMIT 5`
+        : sql`SELECT 1 WHERE false`,
     ],
     { readOnly: true },
   );
@@ -114,6 +138,7 @@ export async function loadState(incidentId: string, viewer: Viewer, secret?: str
       volunteers: volunteers.map(mapVolunteer),
       assignments: assignments.map(mapAssignment),
       events: events.map(mapEvent),
+      incidents: queue.map(mapSummary).sort((a, b) => sceneRank(a.scene) - sceneRank(b.scene)),
     };
     if (secret) state.access = tokens(secret, incidentId);
     return state;
@@ -142,8 +167,8 @@ function seedStatements(incidentId: string, sessionId: string, secret: string, s
   const briefJson = JSON.stringify(core);
   const i = seed.incident;
   return [
-    sql`INSERT INTO fl_incidents (id, session_id, title, category, address, description, status, reported_at, lat, lng, staging_area, witness_token_hash, volunteer_token_hash, brief, brief_mode, brief_revision, brief_updated_at)
-        SELECT ${incidentId}::uuid, ${sessionId}::uuid, ${i.title}::text, ${i.category}::text, ${i.address}::text, ${i.description}::text, ${i.status}::text, ${i.reportedAt}::timestamptz, ${i.location.lat}::float8, ${i.location.lng}::float8, ${i.stagingArea}::text,
+    sql`INSERT INTO fl_incidents (id, session_id, scene, title, category, address, description, status, reported_at, lat, lng, staging_area, witness_token_hash, volunteer_token_hash, brief, brief_mode, brief_revision, brief_updated_at)
+        SELECT ${incidentId}::uuid, ${sessionId}::uuid, ${i.scene}::text, ${i.title}::text, ${i.category}::text, ${i.address}::text, ${i.description}::text, ${i.status}::text, ${i.reportedAt}::timestamptz, ${i.location.lat}::float8, ${i.location.lng}::float8, ${i.stagingArea}::text,
                ${sha256(t.witnessToken)}::text, ${sha256(t.volunteerToken)}::text, ${briefJson}::jsonb, ${seed.brief.mode}::text, ${seed.brief.revision}::int, ${seed.brief.updatedAt}::timestamptz
         WHERE EXISTS (SELECT 1 FROM fl_sessions WHERE id = ${sessionId}::uuid)`,
     sql`INSERT INTO fl_reports (id, incident_id, seq, source_label, name, location, text, kind, is_sample, created_at)
@@ -166,40 +191,56 @@ function seedStatements(incidentId: string, sessionId: string, secret: string, s
   ];
 }
 
-function seededState(seed: DemoState, secret: string): DemoState {
-  return { ...seed, viewerRole: "coordinator", access: tokens(secret, seed.incident.id) };
-}
-
-/** Create a new isolated workspace seeded with the staged scenario. Bounded per day and in total. */
+/** Create a new isolated workspace seeded with every staged incident. Bounded per day and in total. */
 export async function createWorkspace(): Promise<{ secret: string; state: DemoState }> {
   const sql = getDatabase();
   const secret = newSessionSecret();
   const sessionId = randomUUID();
-  const incidentId = randomUUID();
-  const seed = createDemoSeed(incidentId);
+  const seeds = SCENES.map((scene) => createSceneSeed(scene, randomUUID()));
   const results = await sql.transaction([
     sql`INSERT INTO fl_sessions (id, secret_hash, expires_at)
         SELECT ${sessionId}::uuid, ${sha256(secret)}::text, now() + make_interval(days => ${LIMITS.sessionTtlDays}::int)
         WHERE (SELECT count(*) FROM fl_sessions WHERE created_at > now() - interval '1 day') < ${LIMITS.maxWorkspacesPerDay}::int
           AND (SELECT count(*) FROM fl_sessions WHERE expires_at > now()) < ${LIMITS.maxActiveWorkspaces}::int
         RETURNING id`,
-    ...seedStatements(incidentId, sessionId, secret, seed),
+    ...seeds.flatMap((seed) => seedStatements(seed.incident.id, sessionId, secret, seed)),
   ]);
   if ((results[0] ?? []).length === 0) throw new ApiError(503, "This demo has reached its workspace limit for now. Please try again later.");
   if (Math.random() < 0.1) void purgeExpired().catch(() => undefined);
-  return { secret, state: seededState(seed, secret) };
+  return { secret, state: await loadState(seeds[0].incident.id, "coordinator", secret) };
 }
 
-/** Reset the owner's workspace to the seed. Same incident id and share links; all content, media and notes replaced. */
-export async function resetWorkspace(incidentId: string, sessionId: string, secret: string): Promise<DemoState> {
+/** Workspaces created before multi-incident support hold only some scenes: seed the missing ones once. */
+export async function ensureScenes(sessionId: string, secret: string, present: string[]): Promise<void> {
+  const missing = SCENES.filter((scene) => !present.includes(scene));
+  if (missing.length === 0) return;
   const sql = getDatabase();
-  const seed = createDemoSeed(incidentId);
+  try {
+    await sql.transaction(missing.flatMap((scene) => {
+      const seed = createSceneSeed(scene, randomUUID());
+      return seedStatements(seed.incident.id, sessionId, secret, seed);
+    }));
+  } catch (error) {
+    if (!isUniqueViolation(error)) throw error; // a concurrent request seeded them first
+  }
+}
+
+/**
+ * Reset every incident in the owner's workspace to its seed. Incident ids (and so share links and codes) are kept per
+ * scene; all content, media and notes are replaced. Returns the coordinator state of `viewIncidentId`.
+ */
+export async function resetWorkspace(viewIncidentId: string, sessionId: string, secret: string): Promise<DemoState> {
+  const sql = getDatabase();
+  const existing = await sql`SELECT id, scene FROM fl_incidents WHERE session_id = ${sessionId}::uuid LIMIT 5`;
+  const idFor = new Map(existing.map((r) => [String(r.scene), String(r.id)]));
+  const seeds = SCENES.map((scene) => createSceneSeed(scene, idFor.get(scene) ?? randomUUID()));
   await sql.transaction([
-    sql`DELETE FROM fl_incidents WHERE id = ${incidentId}::uuid AND session_id = ${sessionId}::uuid`,
-    ...seedStatements(incidentId, sessionId, secret, seed),
+    sql`DELETE FROM fl_incidents WHERE session_id = ${sessionId}::uuid`,
+    ...seeds.flatMap((seed) => seedStatements(seed.incident.id, sessionId, secret, seed)),
   ]);
-  await removeIncidentMedia(incidentId);
-  return seededState(seed, secret);
+  await Promise.all(existing.map((r) => removeIncidentMedia(String(r.id))));
+  const view = seeds.some((seed) => seed.incident.id === viewIncidentId) ? viewIncidentId : seeds[0].incident.id;
+  return loadState(view, "coordinator", secret);
 }
 
 /** Retention: remove up to 10 expired workspaces (rows cascade; files removed here) and old usage rows. */
@@ -229,6 +270,8 @@ export interface NewReport {
   transcriptionStatus: "completed" | "failed" | "not_requested";
   kind: "text" | "photo" | "voice";
   screening: ReportScreening;
+  /** Set when Gemini routed an unrouted intake report here. */
+  routing?: ReportRouting;
   photo?: { id: string; fileName: string; bytes: number; mime: string };
   audio?: { id: string; fileName: string; bytes: number; mime: string };
 }
@@ -238,6 +281,16 @@ export async function incidentFacts(incidentId: string): Promise<Pick<Incident, 
   const rows = await getDatabase()`SELECT title, category, address, description FROM fl_incidents WHERE id = ${incidentId}::uuid`;
   if (!rows[0]) throw new ApiError(404, "Workspace not found or the access link is not valid.");
   return { title: rows[0].title, category: rows[0].category, address: rows[0].address, description: rows[0].description };
+}
+
+/** Routing candidates: every incident in the workspace that owns `incidentId`, in queue order. */
+export async function workspaceIncidentFacts(incidentId: string): Promise<(Pick<Incident, "id" | "scene" | "title" | "category" | "address" | "description">)[]> {
+  const rows = await getDatabase()`
+    SELECT id, scene, title, category, address, description FROM fl_incidents
+    WHERE session_id = (SELECT session_id FROM fl_incidents WHERE id = ${incidentId}::uuid) LIMIT 5`;
+  return rows
+    .map((r) => ({ id: String(r.id), scene: r.scene as IncidentScene, title: r.title, category: r.category, address: r.address, description: r.description }))
+    .sort((a, b) => sceneRank(a.scene) - sceneRank(b.scene));
 }
 
 export async function countReports(incidentId: string): Promise<number> {
@@ -251,16 +304,18 @@ export async function insertReport(r: NewReport): Promise<WitnessReport> {
   const who = r.name.split(" ")[0]?.slice(0, 40) || "A witness";
   const eventText =
     r.screening.status === "flagged"
-      ? `A report was withheld from the feed by Gemini screening: ${r.screening.reason.slice(0, 160)}`
-      : `${who} shared a report from ${r.location.slice(0, 60)}.`;
+      ? `A report was held for review by Gemini screening: ${r.screening.reason.slice(0, 160)}`
+      : r.routing
+        ? `Gemini routed a dispatch-intake report from ${r.location.slice(0, 60)} to this incident.`
+        : `${who} shared a report from ${r.location.slice(0, 60)}.`;
   try {
     const rows = await sql`
       WITH cap AS (
         SELECT count(*)::int AS n, coalesce(max(seq), 0) + 1 AS next FROM fl_reports WHERE incident_id = ${r.incidentId}::uuid
       ), rep AS (
-        INSERT INTO fl_reports (id, incident_id, seq, source_label, name, location, text, transcript, photo_media_id, audio_media_id, kind, transcription_status, is_sample, screening_status, screening_reason)
+        INSERT INTO fl_reports (id, incident_id, seq, source_label, name, location, text, transcript, photo_media_id, audio_media_id, kind, transcription_status, is_sample, screening_status, screening_reason, routing_reason)
         SELECT ${r.id}::uuid, ${r.incidentId}::uuid, cap.next, 'W-' || lpad(cap.next::text, 2, '0'), ${r.name}::text, ${r.location}::text, ${r.text}::text, ${r.transcript}::text,
-               ${r.photo?.id ?? null}::uuid, ${r.audio?.id ?? null}::uuid, ${r.kind}::text, ${r.transcriptionStatus}::text, false, ${r.screening.status}::text, ${r.screening.reason}::text
+               ${r.photo?.id ?? null}::uuid, ${r.audio?.id ?? null}::uuid, ${r.kind}::text, ${r.transcriptionStatus}::text, false, ${r.screening.status}::text, ${r.screening.reason}::text, ${r.routing?.reason ?? null}::text
         FROM cap WHERE cap.n < ${LIMITS.maxReports}::int
           AND EXISTS (SELECT 1 FROM fl_incidents WHERE id = ${r.incidentId}::uuid)
         RETURNING id, seq, source_label, created_at
@@ -279,6 +334,7 @@ export async function insertReport(r: NewReport): Promise<WitnessReport> {
     const row = rows[0];
     if (!row) throw new ApiError(409, `This incident already has the maximum of ${LIMITS.maxReports} reports.`);
     const report: WitnessReport = { id: r.id, sourceLabel: row.source_label, name: r.name, location: r.location, text: r.text, kind: r.kind, createdAt: iso(row.created_at), transcriptionStatus: r.transcriptionStatus, screening: r.screening };
+    if (r.routing) report.routing = r.routing;
     if (r.transcript) report.transcript = r.transcript;
     if (r.photo) report.photoId = r.photo.id;
     if (r.audio) report.audioId = r.audio.id;

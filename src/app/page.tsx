@@ -1,7 +1,28 @@
 import React from "react";
 import Link from "next/link";
 import { LandingDemoLinks, LandingWitnessHeroLink } from "../components/LandingDemoLinks";
-import { ArrowRight, Shield, Sparkles, Users, MessageSquare, AlertTriangle, ChevronRight } from "lucide-react";
+import { ArrowRight, Shield, Sparkles, Users, MessageSquare, AlertTriangle, ChevronRight, PhoneCall, ShieldAlert, Camera, ShieldCheck, ClipboardList } from "lucide-react";
+
+const FLOW_STEPS = [
+  { icon: PhoneCall, title: "911 call is logged", text: "In this demo the dispatcher's text message is simulated: the caller receives a FirstLink witness link." },
+  { icon: ShieldAlert, title: "Safety & consent", text: "Step 1 of the form. The witness confirms they are somewhere safe and consents before anything is collected." },
+  { icon: Camera, title: "Observation", text: "Step 2. Text, a photo, or a voice note of up to 45 seconds. ElevenLabs transcribes the voice note." },
+  { icon: ShieldCheck, title: "Gemini screening", text: "Each report is checked as it arrives. Off-site, fabricated or manipulative reports are withheld from the feed." },
+  { icon: ClipboardList, title: "Shared brief", text: "Gemini combines the accepted reports into a brief where every claim links to its sources. Coordinators correct it with notes." },
+  { icon: Users, title: "Approved support", text: "The coordinator approves nearby volunteers for the designated staging point; volunteers accept or decline." },
+];
+
+function Brand() {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/brand-mark.svg" alt="" width={28} height={28} />
+      <span style={{ fontSize: "1.15rem", fontWeight: 600, letterSpacing: "-0.02em" }}>
+        <span style={{ color: "#fffcf6" }}>First</span><span style={{ color: "#a1c2c6" }}>Link</span>
+      </span>
+    </span>
+  );
+}
 
 export default function HomePage() {
   return (
@@ -15,20 +36,14 @@ export default function HomePage() {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          padding: "0 24px",
+          padding: "0 clamp(12px, 3vw, 24px)",
           position: "sticky",
           top: 0,
           zIndex: 40,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <svg width="28" height="28" viewBox="0 0 64 64" fill="none">
-            <rect width="64" height="64" rx="2" fill="#0b363b" />
-            <path d="M16 20h19v8H24v16h-8zM29 36h11V20h8v24H29z" fill="var(--accent-lime)" />
-          </svg>
-          <span style={{ fontSize: "1.15rem", fontWeight: 600, color: "var(--cream)", letterSpacing: "-0.02em" }}>
-            firstlink
-          </span>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+          <Brand />
           <span className="badge badge-sim-dark" style={{ marginLeft: "6px" }}>
             SIMULATION
           </span>
@@ -36,7 +51,7 @@ export default function HomePage() {
 
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <Link href="/dashboard" className="btn btn-sm btn-primary">
-            <span>Open Demo</span>
+            <span>Open console</span>
             <ArrowRight size={14} />
           </Link>
         </div>
@@ -46,7 +61,7 @@ export default function HomePage() {
       {/* Hero Section: Dark Spruce Fullbleed */}
       <section
         style={{
-          background: "linear-gradient(180deg, var(--spruce-deep) 0%, var(--spruce-main) 100%)",
+          background: "var(--spruce-deep)",
           color: "var(--cream)",
           padding: "80px 24px 100px",
           borderBottom: "1px solid var(--spruce-hairline)",
@@ -98,7 +113,7 @@ export default function HomePage() {
 
               <div style={{ display: "flex", gap: "14px", flexWrap: "wrap", alignItems: "center" }}>
                 <Link href="/dashboard" className="btn btn-lg btn-primary">
-                  <span>Open Coordinator Workspace</span>
+                  <span>Open console</span>
                   <ArrowRight size={16} />
                 </Link>
 
@@ -113,11 +128,11 @@ export default function HomePage() {
                   gap: "8px",
                   marginTop: "28px",
                   fontSize: "0.8125rem",
-                  color: "var(--spruce-muted)",
+                  color: "var(--spruce-light)",
                 }}
               >
                 <Shield size={14} color="var(--accent-lime)" />
-                <span>Simulated La Jolla canyon fire scenario · Professional response is staged</span>
+                <span>Three simulated San Diego incidents · Professional response is staged</span>
               </div>
             </div>
 
@@ -136,7 +151,7 @@ export default function HomePage() {
                 }}
               >
                 {/* Mock Window Bar */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--spruce-hairline)", paddingBottom: "12px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px", borderBottom: "1px solid var(--spruce-hairline)", paddingBottom: "12px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                     <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#ff5f56" }} />
                     <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#ffbd2e" }} />
@@ -189,7 +204,7 @@ export default function HomePage() {
                 {/* Staging & Volunteer preview */}
                 <div style={{ background: "rgba(0, 25, 28, 0.6)", padding: "12px", borderRadius: "2px", border: "1px solid var(--spruce-hairline)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "var(--accent-lime)", color: "var(--spruce-deep)", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem" }}>
+                    <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "var(--accent-lime)", color: "var(--spruce-deep)", fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem" }}>
                       MC
                     </div>
                     <div>
@@ -233,8 +248,8 @@ export default function HomePage() {
       <section style={{ background: "var(--cream)", padding: "96px 24px", color: "var(--text-main)", flex: 1 }}>
         <div className="container-max">
           <div style={{ textAlign: "center", maxWidth: "680px", margin: "0 auto 64px" }}>
-            <span style={{ fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.08em", color: "var(--spruce-muted)", textTransform: "uppercase" }}>
-              HOW FIRSTLINK WORKS
+            <span style={{ fontSize: "0.8125rem", fontWeight: 600, letterSpacing: "0.08em", color: "var(--spruce-muted)", textTransform: "uppercase" }}>
+              FROM OBSERVATION TO COORDINATION
             </span>
             <h2 style={{ fontSize: "clamp(2rem, 4vw, 2.75rem)", color: "var(--spruce-main)", marginTop: "8px", fontWeight: 475 }}>
               Calm coordination when seconds matter.
@@ -286,7 +301,7 @@ export default function HomePage() {
               </div>
               <div style={{ marginTop: "24px" }}>
                 <Link href="/dashboard" className="btn btn-sm btn-dark" style={{ width: "100%" }}>
-                  Open Coordinator Brief
+                  Open console
                 </Link>
               </div>
             </div>
@@ -310,35 +325,50 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Staged Disclaimer Box */}
-          <div
-            style={{
-              background: "var(--cream-muted)",
-              border: "1px solid var(--cream-hairline)",
-              borderRadius: "2px",
-              padding: "24px 28px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              flexWrap: "wrap",
-              gap: "16px",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "flex-start", gap: "12px", maxWidth: "780px" }}>
-              <AlertTriangle size={20} color="var(--caution-text)" style={{ flexShrink: 0, marginTop: "2px" }} />
-              <div>
-                <div style={{ fontSize: "0.9375rem", fontWeight: 600, color: "var(--spruce-main)" }}>
-                  Hackathon Demonstration Environment
-                </div>
-                <p style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginTop: "2px" }}>
-                  All incident data, locations, volunteer profiles, and arrival times are staged for demonstration purposes. This system is not connected to municipal 911 dispatch or live emergency services.
-                </p>
-              </div>
+          <section aria-labelledby="how-it-works-heading" style={{ marginTop: "80px", marginBottom: "64px" }}>
+            <div style={{ maxWidth: "640px", marginBottom: "28px" }}>
+              <h2 id="how-it-works-heading" style={{ fontSize: "clamp(2rem, 4vw, 2.75rem)", color: "var(--spruce-main)", fontWeight: 475 }}>
+                How it works
+              </h2>
+              <p style={{ color: "var(--text-muted)", marginTop: "12px", lineHeight: 1.6 }}>
+                A witness observation becomes a shared brief, with a coordinator reviewing the next step.
+              </p>
             </div>
+            <ol style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(300px, 100%), 1fr))", gap: "16px" }}>
+              {FLOW_STEPS.map((step, index) => (
+                <li key={step.title} className="card-light" style={{ padding: "24px", background: "#ffffff" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px", color: "var(--spruce-muted)" }}>
+                    <step.icon size={20} aria-hidden="true" />
+                    <span style={{ fontSize: "0.75rem", fontWeight: 600 }}>{String(index + 1).padStart(2, "0")}</span>
+                  </div>
+                  <h3 style={{ color: "var(--spruce-main)", fontSize: "1rem", fontWeight: 600, marginBottom: "8px" }}>{step.title}</h3>
+                  <p style={{ color: "var(--text-muted)", fontSize: "0.875rem", lineHeight: 1.6 }}>{step.text}</p>
+                  {index === 3 && (
+                    <p style={{ color: "var(--spruce-main)", fontSize: "0.8125rem", lineHeight: 1.6, marginTop: "16px", paddingTop: "16px", borderTop: "1px solid var(--cream-hairline)" }}>
+                      With several incidents active, Gemini also routes unrouted dispatch-intake reports to the right incident: a canyon brush fire, a flooded underpass or a coastal bluff collapse. Reports that match none are held back.
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ol>
+          </section>
 
-            <Link href="/dashboard" className="btn btn-sm btn-primary">
-              Open coordinator workspace
-            </Link>
+          <aside aria-labelledby="simulation-heading" style={{ background: "var(--cream-muted)", border: "1px solid var(--cream-hairline)", borderRadius: "2px", padding: "24px 28px", display: "flex", alignItems: "flex-start", gap: "12px" }}>
+            <AlertTriangle size={20} color="var(--caution-text)" aria-hidden="true" style={{ flexShrink: 0, marginTop: "2px" }} />
+            <div>
+              <h2 id="simulation-heading" style={{ fontSize: "1rem", fontWeight: 600, color: "var(--spruce-main)" }}>What’s simulated</h2>
+              <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginTop: "8px", lineHeight: 1.6 }}>
+                911 link delivery, agency dispatch, volunteer travel and the incidents themselves are staged. There is no connection to live emergency services. Photos are real San Diego-area archival photos (wildfires, flooding, a bluff collapse) from Wikimedia Commons, used as stand-ins; they do not depict these staged incidents. <a href="/sim/CREDITS.md" style={{ color: "var(--spruce-main)", textDecoration: "underline", textUnderlineOffset: "3px" }}>Photo and media credits</a>. Voices are synthetic.
+              </p>
+            </div>
+          </aside>
+
+          <div aria-label="Built with" style={{ marginTop: "32px", paddingTop: "24px", borderTop: "1px solid var(--cream-hairline)", display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "20px" }}>
+            <p style={{ color: "var(--text-muted)", fontSize: "0.8125rem", lineHeight: 1.8 }}>
+              <span style={{ marginRight: "16px" }}>Built with</span>
+              <span style={{ color: "var(--spruce-main)" }}>Gemini · ElevenLabs · Neon · Vultr</span>
+            </p>
+            <Link href="/dashboard" className="btn btn-sm btn-primary">Open console <ArrowRight size={14} aria-hidden="true" /></Link>
           </div>
         </div>
       </section>
@@ -355,8 +385,8 @@ export default function HomePage() {
         }}
       >
         <div className="container-max" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <span style={{ fontWeight: 600, color: "var(--cream)" }}>firstlink</span>
+          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
+            <Brand />
             <span>·</span>
             <span>The first minutes, connected.</span>
           </div>

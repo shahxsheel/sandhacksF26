@@ -13,7 +13,7 @@ export const LIMITS = {
   maxActiveWorkspaces: 1000,
   /** Generous enough for a shared venue network; only applied to requests that came through the proxy. */
   maxWorkspacesPerIpPerHour: 40,
-  maxReports: 8,
+  maxReports: 12,
   maxNotes: 20,
   maxAssignments: 20,
   maxNameLength: 80,
