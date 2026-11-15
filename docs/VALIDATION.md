@@ -42,3 +42,12 @@ Release `afc3f35`: TypeScript and production builds pass. Eight affected desktop
 ## Normal and simulation modes
 
 Release `129b709`: TypeScript and production builds pass; 27 backend checks pass (new: flagged reports withheld from feed and brief, names not sent to screening, cached verdicts reserve nothing, failures stored as unscreened); 38 Playwright checks pass against a local production server. A cold live run took 91 s with 5 Gemini screenings (605–1,773 input and 39–60 output tokens each) and 2 ElevenLabs transcriptions; Gemini accepted all four genuine staged reports and withheld the fabricated one. A rerun on a fresh workspace took 1.9 s with zero new reservations. Desktop and 375 px layouts were visually inspected; at 375 px the schematic map scrolls horizontally inside its panel by design. App reservations after testing: Gemini USD 1.60 of 14, ElevenLabs 31,000 of 40,000 units (actual account usage 393 of 131,000 characters).
+
+## Release 2927413 — operator console and dispatch routing
+
+- Backend harness (PGlite, mocked providers): 30 checks pass. They include multi-incident ownership, per-incident witness tokens, routing by content across incidents, unmatched reports held, a scene-keyed routing cache shared across workspaces, routing failures stored unscreened and unrouted, owner-only intake, and legacy workspaces topped up to three incidents.
+- Playwright (desktop and Pixel 7 projects, local dev server against Neon): 42 pass.
+- Live public run: see DEPLOYMENT.md. The routing verdicts were real Gemini responses, not mocks.
+- Incident during testing: the Gemini project's prepaid credits ran out (HTTP 402), and the `gemini-4-hydrogen` free-tier daily limit was exhausted (HTTP 429). The app kept those reports as **Not screened** and unrouted, as designed. Calls succeeded again later the same day.
+- Repeated e2e runs reached the global 300-per-day workspace cap in the shared Neon database. Untouched test workspaces (no submitted reports or media) from that day were deleted to restore the public allowance.
+

@@ -50,3 +50,8 @@ Current application release: `afc3f35e94b85888b8c48f995c964e04a12d81da`. Witness
 ## Normal and simulation modes update
 
 Current application release: `129b709`. Adds the dashboard Normal/Simulation modes, per-report Gemini screening and the La Jolla canyon-fire scenario. The `fl_reports` screening columns and `fl_provider_cache` were added to the existing Neon branch with `npm run db:init` (idempotent, `fl_` objects only). Compose reported healthy. A public browser run sent all five staged reports in 2.4 s from cached results: four accepted, the fabricated report withheld with a specific reason and absent from the feed and brief, no page errors, no horizontal overflow at 375 px, and no new provider reservations.
+
+Current application release: `2927413`. Adds the operator console and three concurrent incidents per workspace (canyon fire, Genesee underpass flood, Black's Beach bluff collapse). Owner-only dispatch intake has Gemini screen each report and route it to the matching incident. A presenter slide-over drives the staged inputs. Schema additions were applied with `npm run db:init`: the `fl_incidents.scene` column, unique `(session_id, scene)` and `fl_reports.routing_reason`. The one-incident-per-session constraint was dropped. Compose reported healthy. A public browser run produced the following, with no page errors and no horizontal overflow at 375 px:
+- All five witness-link reports came back as expected (four accepted, the fabricated one held), served from the cache.
+- Four intake reports were routed live: the flood to the underpass incident; smoke seen from the Gliderport to the canyon fire (routed by content, not location); the cliff fall to the bluff incident; and a Chula Vista outage held as matching no active incident.
+
