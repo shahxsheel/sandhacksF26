@@ -19,7 +19,7 @@ Both local and deployed server runs completed the same bounded integration:
 4. Gemini Interactions (`gemini-4-hydrogen`) produces four claims with valid report references. The uploaded blank image is not represented as incident evidence. Repeated hearsay remains unconfirmed.
 5. ElevenLabs returns MP3 narration. Public audio was 322,707 bytes / 40.26 seconds. A second request returned identical cached audio without another provider reservation.
 
-Final deployed application commit: `b01d267def3050ae6dcfcf9731b51da5f2241877`. After container replacement, the same media report, Gemini brief, and cached narration persisted. A fresh production browser walkthrough passed typed witness submission, coordinator note, approval, shared-link volunteer acceptance, coordinator refresh, and a 320 px share dialog, with zero page/hydration errors. Twelve final public screenshots cover all four views at 1440, 375, and 320 px; the final landing and small-phone witness form were visually inspected.
+Initial verified application commit: `b01d267def3050ae6dcfcf9731b51da5f2241877`. After container replacement, the same media report, Gemini brief, and cached narration persisted. A fresh production browser walkthrough passed typed witness submission, coordinator note, approval, shared-link volunteer acceptance, coordinator refresh, and a 320 px share dialog, with zero page/hydration errors. Twelve final public screenshots cover all four views at 1440, 375, and 320 px; the final landing and small-phone witness form were visually inspected.
 
 The public browser loaded HTTPS in a secure context and persisted a typed report, coordinator note, approved support task, and volunteer acceptance. The container runs as uid 1000 with ffprobe available; runtime secrets have mode 0600 and uploads use a persistent host directory.
 
@@ -34,3 +34,7 @@ The final database-size query returned 10,182,656 bytes (about 9.7 MiB), includi
 ## Limits
 
 No live 911/CAD feed, emergency-agency integration, medical triage, safe-route determination, response-time improvement, actual volunteer travel, or physical hardware has been verified. Maps, distances, people, and incident are staged. Share links are capability links; the demo volunteer link is shared across assigned demo volunteers rather than authenticating individual identities. This is a hackathon prototype, not a production dispatch service.
+
+## Two-step witness form update
+
+Release `afc3f35`: TypeScript and production builds pass. Eight affected desktop/mobile checks passed against the local production server, including disclaimer consent gating, successful typed submission, reset, text/audio draft retention, shared witness access, and 320 px controls. Both steps were visually inspected at 375 px. A public 320 px smoke check passed with zero page errors after deployment. The development server had repeatedly reloaded during the initial test attempt; the production-server run above is the passing verification.
