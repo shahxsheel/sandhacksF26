@@ -19,7 +19,7 @@ npm run doctor
 npm run dev
 ```
 
-The local application serves at http://127.0.0.1:3000. It currently contains a foundation page and `/api/health`; the incident workflow is not implemented yet.
+The local application serves at http://127.0.0.1:3000. The coordinator dashboard, witness report form, volunteer portal, and all incident APIs are implemented. Install ffmpeg (`brew install ffmpeg` on this Mac) for validated voice uploads. Initialize the existing database once with `npm run db:init` after configuring credentials.
 
 ```sh
 npm run typecheck
@@ -29,7 +29,7 @@ npm run elevenlabs -- --help
 npm run vultr -- --help
 ```
 
-Playwright's configuration includes desktop and mobile Chromium projects. Add real workflow tests under `tests/e2e` as the product is implemented, then run `npx playwright test`. No placeholder tests have been added or claimed to pass.
+Playwright's configuration includes desktop and mobile Chromium projects. Run `npm run test:e2e` for the implemented role workflows. These tests use the configured database but do not call paid providers. `npm run test:backend` uses in-memory Postgres and mocked providers.
 
 ## Credentials and connection state
 
@@ -59,18 +59,18 @@ docker build -t sandhacks .
 docker run --rm -p 127.0.0.1:3000:3000 --env-file /secure/path/runtime.env sandhacks
 ```
 
-The runtime environment file should contain only `GEMINI_API_KEY`, `ELEVENLABS_API_KEY`, and `DATABASE_URL` as needed. Terminate public HTTPS at a reverse proxy when deploying. Resource creation and a public deployment remain separate work requiring account access and an agreed spending limit. The image build has not been verified unless explicitly recorded below.
+The runtime environment file contains the three application credentials plus optional model and origin settings. Keep provisioning credentials out. The checked-in Compose release uses `/opt/firstlink/runtime.env`, a persistent `/opt/firstlink/data` volume, and host Caddy for HTTPS. See [deployment](DEPLOYMENT.md) for the live release.
 
 ## Verification on this Mac (2026-11-15)
 
 - Next.js production build and TypeScript check pass. The generated standalone server returns HTTP 200 for the home page and the expected health payload for `/api/health`.
 - All provider SDK imports load, and the Neon, ElevenLabs, and Vultr CLIs run.
-- Playwright Chromium and its headless shell are installed. Desktop and mobile review configuration is prepared; product visual reviews have not been performed.
+- Playwright Chromium and its headless shell are installed. The full desktop/mobile suite passed 26 tests before final review; screenshots were inspected at 1440, 375, and 320 px widths. See [validation](VALIDATION.md) for final results.
 - Credential-free dependency audit reports zero known vulnerabilities after the scoped overrides.
 - At initial tooling setup, no service credentials were configured and no live provider request had been verified. See [Gemini setup](GEMINI.md) for the subsequent Interactions API configuration and test status.
 - Subsequently, Gemini, ElevenLabs, Vultr, and Neon credentials were supplied or retrieved and saved in the ignored, owner-readable `.env.local` file.
-- Subsequent live checks succeeded: Gemini Interactions generation, Neon `SELECT 1`, ElevenLabs read-only subscription access, and Vultr read-only account access. Credentials remain ignored and owner-readable. No ElevenLabs generation/transcription, database migration, or Vultr VM creation has been performed. See the provider setup documents for the current state.
-- Docker's CLI is already installed, but its configured Colima daemon is stopped/unavailable. The Docker image has not been built or run.
+- Subsequent live checks succeeded: Gemini source-linked multimodal briefs, ElevenLabs voice transcription and cached brief narration, and persisted Neon role workflows. The namespaced schema was initialized on the existing free-plan branch.
+- Local Colima remains unavailable. The production Docker image was successfully built and run on the Vultr VM instead, including ffmpeg and writable persistent media storage.
 
 ## Primary installation references
 

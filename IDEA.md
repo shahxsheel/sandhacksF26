@@ -6,7 +6,7 @@ Recorded 2026-11-15. This document preserves the user's concept and distinguishe
 
 A safe bystander reports a fire through 911. The envisioned emergency operator sends a link where the witness can contribute photos, video, and voice context. ElevenLabs transcribes speech and supports spoken information gathering. Gemini combines those reports into an evolving picture of the incident, proposes resource needs, and identifies suitable registered volunteers nearby. Volunteers can potentially help during the gap before professional responders arrive; firefighters receive more context on approach. Multiple witnesses reporting the same event would eventually contribute to one shared incident. A person collapsing near an available trained neighbor is another motivating example.
 
-This is a proposed product flow. No emergency-service integration, agency partnership, response-time advantage, or deployment has been established.
+This is a proposed product flow. No emergency-service integration, agency partnership, or response-time advantage has been established. The staged web demonstration has since been deployed; see docs/DEPLOYMENT.md.
 
 ## Constraints and available hardware
 
@@ -43,14 +43,14 @@ Real prototype work: upload, transcription, multimodal extraction, source-linked
 - **Neon:** persist incidents, reports, evidence references, brief revisions, and review state. If volunteer matching is subsequently added, store skills, availability, approvals, and acceptance; PostGIS can filter proximity. Ordinary relational data integrity has real product value here.
 - **Data for Good / Overall:** demonstrate useful coordination and a coherent end-to-end experience. Report actual prototype behavior; do not invent lives saved or response-time improvement.
 - **Innovation:** nearby volunteer alerting already exists (PulsePoint). The candidate differentiator is an evolving multimodal evidence brief that preserves conflicting accounts and human review. Competitive novelty beyond that limited check is unverified.
-- **Vultr:** following the hosting discussion, use Vultr as the planned web application and backend host, coordinating uploads and provider requests while Neon holds durable data. Local tooling and a container build recipe are prepared; no cloud instance has been provisioned. Hosting is a natural integration, but prize competitiveness depends on the official rubric.
+- **Vultr:** following the hosting discussion, use Vultr as the planned web application and backend host, coordinating uploads and provider requests while Neon holds durable data. The staged application is hosted on a single Vultr VM with HTTPS and persistent media storage. Hosting is a natural integration, but prize competitiveness depends on the official rubric.
 - **Domain Name:** optional if a memorable name is used; no availability checked. **Tiger Data / Solana:** no necessary role in this minimal version; revisit only when a concrete requirement justifies them. Do not add a second database or blockchain solely to collect tracks.
 
 Priorities above are based on the user's track names and verified platform capabilities, not official eligibility rules or judging criteria.
 
 ### Volunteer and hardware extension
 
-Preserve the original goal: a coordinator can eventually approve one appropriate, bounded support assignment for a registered volunteer at an established staging location. Match skills and availability before considering proximity. Avoid treating an AI-generated resource suggestion as authorization to dispatch a person. In the fire scenario, ordinary volunteers do not enter the burning building.
+Preserve the original goal: the implemented coordinator can approve one appropriate, bounded support assignment for a registered volunteer at an established staging location. Match skills and availability before considering proximity. Avoid treating an AI-generated resource suggestion as authorization to dispatch a person. In the fire scenario, ordinary volunteers do not enter the burning building.
 
 After the core demonstration works, use the Raspberry Pi 5 as a volunteer desk beacon: LED indicates an approved simulated task; a button acknowledges it; the dashboard records acceptance. This creates a small visible hardware interaction without requiring the Arduino boards or camera. It is an optional extension, not an implemented feature or proof of response effectiveness.
 

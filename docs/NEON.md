@@ -22,6 +22,6 @@ Verify connectivity with the read-only check:
 npm run db:check
 ```
 
-**Verified:** `npm run db:check` succeeded against the linked project with `SELECT 1`; the application typecheck and production build also pass after setup. No schema migration, `neon deploy`, billing change, or paid upgrade has been run. Restart or refresh the agent session to load newly installed Neon tools.
+**Verified:** `npm run db:check` succeeded against the linked project with `SELECT 1`. The explicit `npm run db:init` then initialized the app's namespaced `fl_` schema and persistent budget rows on this same branch. Local and public role workflows persist reports, briefs, notes, and assignments. No `neon deploy`, billing change, extra branch/compute, or paid upgrade was run. Restart or refresh the agent session to load newly installed Neon tools.
 
 [Open the linked project](https://console.neon.tech/app/projects/blue-unit-74013355/).

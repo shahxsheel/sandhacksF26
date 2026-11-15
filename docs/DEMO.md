@@ -1,52 +1,62 @@
-# FirstLink — 90-second live demo script
+# FirstLink — 90-second judge demo
 
-**Audience:** judges and sponsors. **Tone:** calm, explicit about simulation limits. **Do not** imply real 911, dispatch, or building-entry decisions.
-
----
-
-## 0:00–0:10 — Open on certainty vs. noise
-
-> “This is **FirstLink**, a **staged campus incident**—not a live emergency feed. The promise is simple: *the first minutes, connected.* Witnesses report what they **saw**; we turn that into one shared brief with **sources, conflicts, and unknowns** left visible.”
-
-Show landing → **Open demo** → coordinator `/dashboard`. Point to **Simulation / Staged incident** labels.
-
-## 0:10–0:25 — Sample brief vs. live Gemini
-
-> “You’re seeing a **sample brief** tied to seeded witness lines—usable before any paid AI call. When I choose **Generate brief**, a **bounded** Gemini Interactions pass may replace it; the UI always shows whether the brief is **sample**, **rules fallback**, or **live Gemini**. We never label fallback output as live AI.”
-
-**Do not** click Generate unless judges want to spend budget; stay on sample mode if caps are tight.
-
-## 0:25–0:40 — Evidence and uncertainty
-
-> “Each claim links to **report IDs**—Alex at the west entrance, Jordan at North Plaza. Notice the disputed line: both repeat **hearsay** about someone inside; we keep that **unconfirmed**. The map is a **demo schematic**, not navigation or safety guidance.”
-
-Expand one witness card; show source label and text. Read one **unknown** aloud.
-
-## 0:40–0:55 — Coordinator correction and volunteer flow
-
-> “I add a **coordinator note**—for example, ‘treat occupancy as unknown until simulated units verify.’ Nearby volunteers are **registered demo roles**, not auto-dispatched. I **approve** one volunteer to the **designated staging point** only; they open the volunteer link and **Accept** or **Decline**. No self-dispatch before approval.”
-
-Add note → approve Maya (supply kit) → copy volunteer link → accept in second tab or phone.
-
-## 0:55–1:30 — Sponsors and what is real
-
-> “**Neon** persists this isolated workspace—reports, brief JSON, assignments—with `fl_` tables and strict caps. **Vultr** hosts the app and short-lived media on disk, not in the database. **Google Gemini** synthesizes the brief when we explicitly ask, with reservations under a **$20** demo cap. **ElevenLabs** is optional for **recorded** witness audio transcription and brief narration—also capped; typed reports work without it.”
-
-> “What we **do not** verify: real 911, agency CAD, travel times, medical triage, or structural safety. Volunteer movement is **simulated coordination** for the hackathon story.”
-
-Reset demo if time allows: **Reset** clears only this browser workspace.
+**Scenario:** *Smoke reported at the Arts Building* — a staged North Campus incident.
+**Audience:** judges and sponsors. **Tone:** calm authority; say plainly what is simulated.
+**Never claim:** real 911, agency dispatch, safe building entry, medical decisions, or verified response times.
 
 ---
 
-## Quick checklist
+## Spoken script (~90s)
 
-| Beat | Show |
-|------|------|
-| Staged labels | Simulation / Staged incident on shell |
-| Brief mode | `sample` vs live Gemini badge |
-| Sources | Claim → report ID → witness text |
-| Uncertainty | Unknowns + disputed claim |
-| Human gate | Coordinator note + volunteer approve → accept |
-| Sponsors | Neon · Vultr · Gemini · ElevenLabs roles above |
+### 0:00–0:15 — Open the dashboard
 
-**Closing line:** “FirstLink connects the first minutes with honest uncertainty—witness evidence in, one shared picture out, humans approving every step toward support.”
+> “When an incident happens, nearby witnesses have fragments of the picture. FirstLink turns those fragments into one source-linked brief and lets a coordinator organize nearby support. This is a staged campus-fire scenario; emergency services are simulated.”
+
+### 0:15–0:30 — Show a witness report
+
+> “A safe bystander opens this link and sends text, a photo, or a short voice note. ElevenLabs transcribes the recording. The original observation stays available beside the transcript.”
+
+Prepare the voice/photo report before presenting; show its playback and source label.
+
+### 0:30–0:50 — Show the brief and sources
+
+> “Gemini combines the reports into this brief. Each claim links back to its witnesses. These two people repeat the same rumor about someone inside; repetition does not make it confirmed. Occupancy stays unknown. I can add a correction while preserving the record.”
+
+Expand one source and add the note: “Treat occupancy as unknown until simulated units verify.”
+
+### 0:50–1:15 — Approve and accept support
+
+> “The coordinator approves Maya to bring supplies to North Plaza, our designated staging point. Her volunteer view shows that approved task. She accepts, and the shared record updates. No one is sent into the building.”
+
+Approve Maya → volunteer view → Accept → coordinator Refresh.
+
+### 1:15–1:30 — Close
+
+> “Neon keeps the record; Vultr hosts the app and media. FirstLink connects witness evidence, an honest shared picture, and human-approved support. Actual 911 integration and volunteer travel remain future work.”
+
+---
+
+## On-screen beats (quick checklist)
+
+| Time | Show |
+| --- | --- |
+| Open | Simulation labels on shell |
+| Witness | Consent + text/voice/photo path (optional live submit) |
+| Brief | Claims → report IDs; **disputed** repeated-inside rumor; unknowns |
+| Coordinator | Note correcting occupancy |
+| Volunteer | Approve Maya → Accept at staging point |
+| Close | Restate simulation limits |
+
+---
+
+## Operator notes (not for judges)
+
+- **Generate brief / Play narration** spend Gemini and ElevenLabs budget; use seeded **sample** brief if caps are tight or judges did not ask for live AI. The UI labels `sample`, `rules`, and live Gemini—never mislabel fallback as live AI.
+- **Voice → transcription → brief → narration** passed locally and on the deployed server. For a rehearsed 90-second tour, prepare the media report before presenting; live model latency varies.
+- **Public URL** `https://firstlink.144.202.126.31.sslip.io` is live over HTTPS; see release verification in [DEPLOYMENT.md](DEPLOYMENT.md).
+- **Reset demo** (coordinator) clears only this browser workspace; links can stay stable.
+- Second tab or phone works well for witness/volunteer links without exposing coordinator tokens.
+
+## What we do not verify
+
+Real emergency calls, CAD/agency integration, ETA, medical triage, structural safety, or actual volunteer travel. Assignments are **simulated coordination** for demonstration only.
