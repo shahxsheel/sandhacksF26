@@ -8,7 +8,7 @@ import { AudioRecorder } from "../../../components/AudioRecorder";
 import { SessionLoadPanel } from "../../../components/SessionLoadPanel";
 import { submitReport, fetchSession, ApiError } from "../../../components/api";
 import { isIncidentUuid } from "../../../components/share-links";
-import { Shield, Camera, Mic, CheckCircle2, AlertTriangle, ArrowRight, Upload, X, MapPin, User, FileText, ChevronLeft } from "lucide-react";
+import { Camera, CheckCircle2, AlertTriangle, ArrowRight, Upload, X, MapPin, User, FileText, ChevronLeft } from "lucide-react";
 
 interface ReportPageProps {
   params: Promise<{ incidentId: string }>;
@@ -18,6 +18,14 @@ export default function WitnessReportPage({ params }: ReportPageProps) {
   const { incidentId } = use(params);
   const searchParams = useSearchParams();
   const access = searchParams?.get("access") || undefined;
+
+  const [step, setStep] = useState<"disclaimer" | "form">("disclaimer");
+  const headingRef = React.useRef<HTMLHeadingElement | null>(null);
+
+  useEffect(() => {
+    headingRef.current?.focus({ preventScroll: true });
+    window.scrollTo(0, 0);
+  }, [step]);
 
   // Form State
   const [name, setName] = useState("");
@@ -38,7 +46,6 @@ export default function WitnessReportPage({ params }: ReportPageProps) {
   const [submittedReport, setSubmittedReport] = useState<{ id?: string; sourceLabel?: string } | null>(null);
   const [accessLoading, setAccessLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState<string | null>(null);
-  const consentError = Boolean(errorMsg?.toLowerCase().includes("consent"));
 
   const verifyAccess = useCallback(async () => {
     setAccessLoading(true);
@@ -152,6 +159,7 @@ export default function WitnessReportPage({ params }: ReportPageProps) {
   };
 
   const resetForm = () => {
+    setStep("disclaimer");
     setName("");
     setLocation("");
     setText("");
@@ -182,26 +190,12 @@ export default function WitnessReportPage({ params }: ReportPageProps) {
             />
           ) : (
             <>
-          {/* Calm Stay-Safe Reminder */}
-          <div
-            style={{
-              background: "var(--caution-bg)",
-              border: "1px solid var(--caution-border)",
-              borderRadius: "2px",
-              padding: "12px 18px",
-              marginBottom: "20px",
-              display: "flex",
-              alignItems: "flex-start",
-              gap: "10px",
-              fontSize: "0.875rem",
-              color: "var(--caution-text)",
-            }}
-          >
-            <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: "2px" }} />
-            <div>
-              <strong>Safety Reminder:</strong> If you are in immediate danger, evacuate immediately. Do not enter or approach the structure. Report only from a secure location.
-            </div>
-          </div>
+          {!submittedReport && (
+            <ol aria-label="Report progress" style={{ display: "flex", gap: "24px", listStyle: "none", padding: 0, margin: "0 0 20px", fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+              <li aria-current={step === "disclaimer" ? "step" : undefined} style={{ color: step === "disclaimer" ? "var(--spruce-main)" : undefined }}>1. Safety & consent</li>
+              <li aria-current={step === "form" ? "step" : undefined} style={{ color: step === "form" ? "var(--spruce-main)" : undefined }}>2. Your observation</li>
+            </ol>
+          )}
 
           {/* Submission Success State */}
           {submittedReport ? (
@@ -257,6 +251,27 @@ export default function WitnessReportPage({ params }: ReportPageProps) {
                 )}
               </div>
             </div>
+          ) : step === "disclaimer" ? (
+            <section className="card-light fl-card-pad" aria-labelledby="witness-disclaimer-heading" style={{ background: "#ffffff" }}>
+              <span className="badge badge-dark" style={{ marginBottom: "16px" }}>STEP 1 OF 2 · SAFETY & CONSENT</span>
+              <h1 id="witness-disclaimer-heading" ref={headingRef} tabIndex={-1} style={{ fontSize: "1.75rem", color: "var(--spruce-main)", marginBottom: "12px" }}>Before you report</h1>
+              <p style={{ color: "var(--text-muted)", marginBottom: "24px" }}>Please read this before sharing an observation.</p>
+              <div style={{ background: "var(--caution-bg)", border: "1px solid var(--caution-border)", borderRadius: "2px", padding: "16px", marginBottom: "20px", display: "flex", alignItems: "flex-start", gap: "10px", color: "var(--caution-text)" }}>
+                <AlertTriangle size={20} style={{ flexShrink: 0, marginTop: "2px" }} />
+                <p>If you are in immediate danger, evacuate immediately. Do not enter or approach the structure. Report only from a secure location.</p>
+              </div>
+              <p style={{ color: "var(--text-muted)", fontSize: "0.9375rem", marginBottom: "24px" }}>This is a staged demonstration. Submitting a report does not contact emergency services. Share only what you can observe from your current safe location.</p>
+              <label style={{ display: "flex", alignItems: "flex-start", gap: "10px", padding: "16px", background: "var(--cream-muted)", border: "1px solid var(--cream-hairline)", borderRadius: "2px", cursor: "pointer", fontSize: "0.9375rem", color: "var(--text-main)" }}>
+                <input type="checkbox" name="consent" checked={consent} onChange={(e) => setConsent(e.target.checked)} style={{ marginTop: "4px", flexShrink: 0 }} />
+                <span>I confirm I am in a safe location outside the hazard area and consent to sharing my observation with the incident coordinator.</span>
+              </label>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px", marginTop: "24px" }}>
+                {!access && <Link href="/dashboard" style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>Back to coordinator</Link>}
+                <button type="button" className="btn btn-primary" disabled={!consent} onClick={() => { setErrorMsg(null); setStep("form"); }}>
+                  Continue to report <ArrowRight size={16} />
+                </button>
+              </div>
+            </section>
           ) : (
             /* Main Witness Reporting Form */
             <div
@@ -269,14 +284,14 @@ export default function WitnessReportPage({ params }: ReportPageProps) {
               <div style={{ marginBottom: "24px", borderBottom: "1px solid var(--cream-hairline)", paddingBottom: "16px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px", flexWrap: "wrap" }}>
                   <span className="badge badge-dark">
-                    STAGED INCIDENT REPORT
+                    STEP 2 OF 2 · YOUR OBSERVATION
                   </span>
                   <span style={{ fontSize: "0.75rem", color: "var(--text-dim)" }}>
                     Incident #{incidentId.slice(0, 8)}
                   </span>
                 </div>
 
-                <h1 style={{ fontSize: "1.75rem", color: "var(--spruce-main)", fontWeight: 600 }}>
+                <h1 ref={headingRef} tabIndex={-1} style={{ fontSize: "1.75rem", color: "var(--spruce-main)", fontWeight: 600 }}>
                   Witness Incident Report
                 </h1>
 
@@ -411,40 +426,14 @@ export default function WitnessReportPage({ params }: ReportPageProps) {
 
                 {/* Optional Short Microphone Voice Note */}
                 <div>
-                  <AudioRecorder onAudioReady={handleAudioReady} maxSeconds={45} />
-                </div>
-
-                {/* Required Consent Checkbox */}
-                <div
-                  style={{
-                    background: consentError ? "var(--danger-bg)" : "var(--cream-muted)",
-                    padding: "14px",
-                    borderRadius: "2px",
-                    border: `1px solid ${consentError ? "var(--danger-border)" : "var(--cream-hairline)"}`,
-                  }}
-                >
-                  <label style={{ display: "flex", alignItems: "flex-start", gap: "10px", cursor: "pointer", fontSize: "0.875rem", color: "var(--text-main)" }}>
-                    <input
-                      type="checkbox"
-                      name="consent"
-                      checked={consent}
-                      onChange={(e) => setConsent(e.target.checked)}
-                      style={{ marginTop: "3px" }}
-                    />
-                    <span>
-                      <strong>Safety & Consent Confirmation:</strong> I confirm I am in a safe location outside the hazard area and consent to sharing this observation with the incident coordinator.
-                    </span>
-                  </label>
+                  <AudioRecorder audio={audioBlob} onAudioReady={handleAudioReady} maxSeconds={45} />
                 </div>
 
                 {/* Submit Action */}
-                <div style={{ display: "flex", justifyContent: access ? "flex-end" : "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginTop: "8px" }}>
-                  {!access && (
-                    <Link href="/dashboard" style={{ fontSize: "0.875rem", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "4px" }}>
-                      <ChevronLeft size={14} />
-                      <span>Back to coordinator view</span>
-                    </Link>
-                  )}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginTop: "8px" }}>
+                  <button type="button" className="btn btn-sm btn-outline-dark" onClick={() => setStep("disclaimer")} disabled={isSubmitting}>
+                    <ChevronLeft size={14} /> Back to safety
+                  </button>
 
                   <button
                     type="submit"

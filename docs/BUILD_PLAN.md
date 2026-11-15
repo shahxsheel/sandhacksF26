@@ -8,7 +8,7 @@ A complete staged campus-fire incident demo with three views: coordinator dashbo
 
 - `/`: polished landing, primary "Open demo" links `/dashboard`, secondary witness reporting link.
 - `/dashboard`: coordinator workspace, evidence source detail, manual refresh, live brief generation, add coordinator note, volunteer selection/approval, share witness and volunteer links, reset demo.
-- `/report/[incidentId]?access=<witnessToken>`: safe-bystander form with name, observed location, text, optional photo, optional recorded/uploaded short audio. Owner browser may use this without access token. Consent checkbox; submission confirmation. Use phone microphone when supported and text fallback otherwise.
+- `/report/[incidentId]?access=<witnessToken>`: safe-bystander form with name, observed location, text, optional photo, optional recorded/uploaded short audio. Owner browser may use this without access token. Two steps: safety disclaimer and required consent first, then the observation form; submission confirmation. Use phone microphone when supported and text fallback otherwise.
 - `/volunteer/[incidentId]?access=<volunteerToken>`: approved assignments, role/skill details, staging location, Accept / Decline actions. Owner browser can test this view without token. No self-dispatch before approval.
 
 ## API contract (JSON success shapes)

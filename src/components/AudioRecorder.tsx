@@ -4,11 +4,12 @@ import React, { useState, useRef, useEffect } from "react";
 import { Mic, Square, Play, Pause, Trash2, Upload, AlertCircle, Check } from "lucide-react";
 
 interface AudioRecorderProps {
+  audio: Blob | null;
   onAudioReady: (audioBlob: Blob | null, fileName?: string) => void;
   maxSeconds?: number;
 }
 
-export function AudioRecorder({ onAudioReady, maxSeconds = 45 }: AudioRecorderProps) {
+export function AudioRecorder({ audio, onAudioReady, maxSeconds = 45 }: AudioRecorderProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -22,6 +23,17 @@ export function AudioRecorder({ onAudioReady, maxSeconds = 45 }: AudioRecorderPr
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    setIsPlaying(false);
+    if (!audio) {
+      setAudioUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(audio);
+    setAudioUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [audio]);
 
   // Never leave the microphone on after the form goes away mid-recording.
   useEffect(() => {
@@ -61,8 +73,6 @@ export function AudioRecorder({ onAudioReady, maxSeconds = 45 }: AudioRecorderPr
 
       mediaRecorder.onstop = () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-        const url = URL.createObjectURL(audioBlob);
-        setAudioUrl(url);
         onAudioReady(audioBlob, "recording.webm");
         stream.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
@@ -97,10 +107,6 @@ export function AudioRecorder({ onAudioReady, maxSeconds = 45 }: AudioRecorderPr
   };
 
   const clearAudio = () => {
-    if (audioUrl) {
-      URL.revokeObjectURL(audioUrl);
-    }
-    setAudioUrl(null);
     setIsPlaying(false);
     setRecordingSeconds(0);
     onAudioReady(null);
@@ -116,8 +122,6 @@ export function AudioRecorder({ onAudioReady, maxSeconds = 45 }: AudioRecorderPr
       return;
     }
 
-    const url = URL.createObjectURL(file);
-    setAudioUrl(url);
     setErrorMsg(null);
     onAudioReady(file, file.name);
   };

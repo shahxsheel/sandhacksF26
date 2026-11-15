@@ -53,6 +53,11 @@ async function submitTextReport(
   return JSON.parse(raw) as { state: DemoState; report: WitnessReport };
 }
 
+async function continueToWitnessForm(page: Page) {
+  await page.locator('[name="consent"]').check();
+  await page.getByRole("button", { name: "Continue to report" }).click();
+}
+
 async function assertMainHeadingReadable(page: Page, minFontPx = 28) {
   const main = page.locator("main").first();
   await expect(main).toBeVisible();
@@ -238,11 +243,12 @@ test.describe("UI — readable headings without horizontal overflow", () => {
   test("witness report form uses contract fields and readable heading", async ({ page }) => {
     const owner = await openOwnerSession(page.request);
     await page.goto(`/report/${owner.incident.id}`);
+    await continueToWitnessForm(page);
     await assertMainHeadingReadable(page);
     await expect(page.locator('[name="name"]')).toBeVisible();
     await expect(page.locator('[name="location"]')).toBeVisible();
     await expect(page.locator('[name="text"]')).toBeVisible();
-    await expect(page.locator('[name="consent"]')).toBeVisible();
+    await expect(page.locator('[name="consent"]')).toHaveCount(0);
   });
 
   test("volunteer view shows Accept and Decline only after coordinator approval", async ({ page }) => {
@@ -263,22 +269,33 @@ test.describe("UI — readable headings without horizontal overflow", () => {
     await expect(page.getByRole("button", { name: /decline/i })).toBeVisible();
   });
 
-  test("witness form blocks submit until consent is checked", async ({ page }) => {
+  test("witness disclaimer gates the form and preserves a draft when returning", async ({ page }) => {
     const owner = await openOwnerSession(page.request);
     await page.goto(`/report/${owner.incident.id}`);
+    await expect(page.getByRole("heading", { name: "Before you report" })).toBeVisible();
+    await expect(page.locator('[name="name"]')).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Continue to report" })).toBeDisabled();
+    await continueToWitnessForm(page);
+    await expect(page.getByRole("heading", { name: "Witness Incident Report" })).toBeFocused();
     await page.locator('[name="name"]').fill("Taylor Reed");
     await page.locator('[name="location"]').fill("North entrance");
     await page.locator('[name="text"]').fill("Smoke near the roofline; staying outside.");
-    await page.locator('[name="consent"]').setChecked(false);
-    const submit = page.getByRole("button", { name: /submit|send (report|observation)/i });
-    await expect(submit).toBeVisible();
-    await submit.click();
-    await expect(page.getByText(/confirm the safety consent checkbox/i)).toBeVisible();
-    const refresh = await page.request.get("/api/session");
-    expect(refresh.ok()).toBeTruthy();
-    const { state } = (await refresh.json()) as { state: DemoState };
-    expect(state.incident.id).toBe(owner.incident.id);
-    expect(state.reports.some((r) => r.name === "Taylor Reed")).toBeFalsy();
+    await page.locator('input[type="file"][accept="audio/*"]').setInputFiles({ name: "draft.wav", mimeType: "audio/wav", buffer: Buffer.from("draft audio") });
+    await expect(page.getByRole("button", { name: "Play audio preview" })).toBeVisible();
+    await page.getByRole("button", { name: "Back to safety" }).click();
+    await expect(page.locator('[name="consent"]')).toBeChecked();
+    await page.locator('[name="consent"]').uncheck();
+    await expect(page.getByRole("button", { name: "Continue to report" })).toBeDisabled();
+    await continueToWitnessForm(page);
+    await expect(page.locator('[name="name"]')).toHaveValue("Taylor Reed");
+    await expect(page.locator('[name="text"]')).toHaveValue("Smoke near the roofline; staying outside.");
+    await expect(page.getByRole("button", { name: "Play audio preview" })).toBeVisible();
+    await page.getByRole("button", { name: "Delete audio recording" }).click();
+    await page.getByRole("button", { name: "Send Observation" }).click();
+    await expect(page.getByText("Observation Submitted")).toBeVisible();
+    await page.getByRole("button", { name: "Submit Another Observation" }).click();
+    await expect(page.getByRole("heading", { name: "Before you report" })).toBeVisible();
+    await expect(page.locator('[name="consent"]')).not.toBeChecked();
   });
 });
 
@@ -293,7 +310,10 @@ test.describe("UI — review regressions", () => {
     for (const path of ["/dashboard", `/report/${owner.incident.id}`, `/volunteer/${owner.incident.id}`]) {
       await page.goto(path);
       await expect(page.locator("main h1")).toBeVisible();
-      if (path.includes("report")) await expect(page.getByRole("button", { name: /upload photo/i })).toBeVisible();
+      if (path.includes("report")) {
+        await continueToWitnessForm(page);
+        await expect(page.getByRole("button", { name: /upload photo/i })).toBeVisible();
+      }
       const clipped = await page.locator("header button, main button").evaluateAll((buttons) => buttons.filter((button) => {
         const box = button.getBoundingClientRect();
         if (!box.width || !box.height) return false;
@@ -337,6 +357,7 @@ test.describe("UI — review regressions", () => {
       await expect(page.getByRole("button", { name: "Share links" })).toHaveCount(0);
       await expect(page.getByRole("navigation", { name: "Demo views" })).toHaveCount(0);
       await expect(page.getByRole("link", { name: /coordinator/i })).toHaveCount(0);
+      await continueToWitnessForm(page);
       // The photo picker is reachable without a mouse.
       await expect(page.getByRole("button", { name: /upload photo/i })).toBeVisible();
     } finally {
